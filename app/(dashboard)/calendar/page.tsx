@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 type EventType = 'meeting' | 'visitor' | 'event' | 'training' | 'other'
 
@@ -11,7 +11,8 @@ interface CalendarEvent {
   date: string
   time: string
   description: string
-  host: string
+  host_user_id: string | null
+  host?: string
 }
 
 const eventTypeColors: Record<EventType, { bg: string; text: string; label: string }> = {
@@ -35,6 +36,7 @@ const team = [
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
@@ -47,6 +49,22 @@ export default function CalendarPage() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
+  // Fetch events on page load
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('/api/calendar/get-events')
+        const data = await res.json()
+        if (data.events) setEvents(data.events)
+      } catch {
+        console.error('Failed to fetch events')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchEvents()
+  }, [])
+
   const handleSubmit = async () => {
     if (!formData.title || !formData.date || !formData.time || !formData.host) {
       setErrorMessage('Please fill in all required fields.')
@@ -57,21 +75,29 @@ export default function CalendarPage() {
     setErrorMessage('')
 
     try {
+      // Save to Supabase
+      const saveRes = await fetch('/api/calendar/save-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+      if (!saveRes.ok) throw new Error('Failed to save event')
+      const { event } = await saveRes.json()
+
+      // Notify security if visitor
       if (formData.type === 'visitor') {
-        const res = await fetch('/api/calendar/notify-security', {
+        const notifyRes = await fetch('/api/calendar/notify-security', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
-        if (!res.ok) throw new Error('Failed to notify security')
+        if (!notifyRes.ok) throw new Error('Failed to notify security')
       }
 
-      const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
-        ...formData,
-      }
+      // Add to local state with host name preserved
+      setEvents(prev => [...prev, { ...event, host: formData.host }]
+        .sort((a, b) => a.date.localeCompare(b.date)))
 
-      setEvents(prev => [...prev, newEvent].sort((a, b) => a.date.localeCompare(b.date)))
       setFormData({ title: '', type: 'meeting', date: '', time: '', description: '', host: '' })
       setShowForm(false)
       setStatus('idle')
@@ -81,8 +107,9 @@ export default function CalendarPage() {
     }
   }
 
-  const upcomingEvents = events.filter(e => e.date >= new Date().toISOString().split('T')[0])
-  const pastEvents = events.filter(e => e.date < new Date().toISOString().split('T')[0])
+  const today = new Date().toISOString().split('T')[0]
+  const upcomingEvents = events.filter(e => e.date >= today)
+  const pastEvents = events.filter(e => e.date < today)
 
   return (
     <div>
@@ -109,7 +136,6 @@ export default function CalendarPage() {
         >
           <h2 className="text-base font-bold text-[#111827] mb-6">New Event or Visitor</h2>
 
-          {/* Title */}
           <div className="mb-4">
             <label className="block text-sm font-semibold text-[#111827] mb-1">
               Title <span style={{ color: '#F48221' }}>*</span>
@@ -124,7 +150,6 @@ export default function CalendarPage() {
             />
           </div>
 
-          {/* Type */}
           <div className="mb-4">
             <label className="block text-sm font-semibold text-[#111827] mb-1">
               Type <span style={{ color: '#F48221' }}>*</span>
@@ -143,7 +168,6 @@ export default function CalendarPage() {
             </select>
           </div>
 
-          {/* Visitor alert */}
           {formData.type === 'visitor' && (
             <div
               className="rounded-lg px-4 py-3 mb-4 text-sm"
@@ -153,7 +177,6 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* Date and Time */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-semibold text-[#111827] mb-1">
@@ -181,7 +204,6 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Host */}
           <div className="mb-4">
             <label className="block text-sm font-semibold text-[#111827] mb-1">
               Host Staff Member <span style={{ color: '#F48221' }}>*</span>
@@ -199,7 +221,6 @@ export default function CalendarPage() {
             </select>
           </div>
 
-          {/* Description */}
           <div className="mb-6">
             <label className="block text-sm font-semibold text-[#111827] mb-1">
               Description / Purpose
@@ -238,60 +259,69 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Upcoming Events */}
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
-          Upcoming — {upcomingEvents.length} {upcomingEvents.length === 1 ? 'event' : 'events'}
-        </h2>
+      {/* Loading */}
+      {loading && (
+        <div className="text-center py-12">
+          <p className="text-sm text-[#6B7280]">Loading events...</p>
+        </div>
+      )}
 
-        {upcomingEvents.length === 0 ? (
-          <div
-            className="bg-white rounded-xl p-8 text-center"
-            style={{ border: '1px solid #E5E7EB' }}
-          >
-            <p className="text-[#6B7280] text-sm">No upcoming events. Click <strong>+ Add Event</strong> to schedule one.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {upcomingEvents.map(event => {
-              const colors = eventTypeColors[event.type]
-              const dateFormatted = new Date(event.date + 'T00:00:00').toLocaleDateString('en-GB', {
-                weekday: 'short', day: 'numeric', month: 'long', year: 'numeric'
-              })
-              return (
-                <div
-                  key={event.id}
-                  className="bg-white rounded-xl p-5 flex items-start gap-4"
-                  style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
-                >
-                  <div className="flex-shrink-0 text-center w-12">
-                    <p className="text-xs text-[#6B7280]">{new Date(event.date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short' })}</p>
-                    <p className="text-2xl font-bold text-[#111827] leading-none">{new Date(event.date + 'T00:00:00').getDate()}</p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <p className="font-semibold text-sm text-[#111827]">{event.title}</p>
-                      <span
-                        className="text-xs font-medium px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: colors.bg, color: colors.text }}
-                      >
-                        {colors.label}
-                      </span>
+      {/* Upcoming Events */}
+      {!loading && (
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
+            Upcoming — {upcomingEvents.length} {upcomingEvents.length === 1 ? 'event' : 'events'}
+          </h2>
+
+          {upcomingEvents.length === 0 ? (
+            <div
+              className="bg-white rounded-xl p-8 text-center"
+              style={{ border: '1px solid #E5E7EB' }}
+            >
+              <p className="text-[#6B7280] text-sm">No upcoming events. Click <strong>+ Add Event</strong> to schedule one.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {upcomingEvents.map(event => {
+                const colors = eventTypeColors[event.type]
+                const dateFormatted = new Date(event.date + 'T00:00:00').toLocaleDateString('en-GB', {
+                  weekday: 'short', day: 'numeric', month: 'long', year: 'numeric'
+                })
+                return (
+                  <div
+                    key={event.id}
+                    className="bg-white rounded-xl p-5 flex items-start gap-4"
+                    style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
+                  >
+                    <div className="flex-shrink-0 text-center w-12">
+                      <p className="text-xs text-[#6B7280]">{new Date(event.date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short' })}</p>
+                      <p className="text-2xl font-bold text-[#111827] leading-none">{new Date(event.date + 'T00:00:00').getDate()}</p>
                     </div>
-                    <p className="text-xs text-[#6B7280]">{dateFormatted} · {event.time} · Host: {event.host}</p>
-                    {event.description && (
-                      <p className="text-sm text-[#374151] mt-1">{event.description}</p>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="font-semibold text-sm text-[#111827]">{event.title}</p>
+                        <span
+                          className="text-xs font-medium px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: colors.bg, color: colors.text }}
+                        >
+                          {colors.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#6B7280]">{dateFormatted} · {event.time} · Host: {event.host || '—'}</p>
+                      {event.description && (
+                        <p className="text-sm text-[#374151] mt-1">{event.description}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Past Events */}
-      {pastEvents.length > 0 && (
+      {!loading && pastEvents.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
             Past — {pastEvents.length} {pastEvents.length === 1 ? 'event' : 'events'}
@@ -322,7 +352,7 @@ export default function CalendarPage() {
                         {colors.label}
                       </span>
                     </div>
-                    <p className="text-xs text-[#6B7280]">{dateFormatted} · {event.time} · Host: {event.host}</p>
+                    <p className="text-xs text-[#6B7280]">{dateFormatted} · {event.time} · Host: {event.host || '—'}</p>
                   </div>
                 </div>
               )
