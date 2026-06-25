@@ -109,7 +109,6 @@ export default function ReportsPage() {
               style={{
                 border: '1px solid #E5E7EB',
                 backgroundColor: '#F9FAFB',
-                focusRingColor: '#0A7E5A',
               }}
             >
               <option value="">Select your name</option>
