@@ -11,7 +11,7 @@ const CARSA_ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001'
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, type, date, time, description, host } = await req.json()
+    const { title, type, date, time, description } = await req.json()
 
     const { data, error } = await supabase
       .from('events')
