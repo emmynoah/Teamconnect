@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { TEAM_NAMES } from '@/lib/team'
 
 type EventType = 'meeting' | 'visitor' | 'event' | 'training' | 'other'
 
@@ -22,17 +23,6 @@ const eventTypeColors: Record<EventType, { bg: string; text: string; label: stri
   training: { bg: '#FDF2F8', text: '#9D174D', label: 'Training' },
   other: { bg: '#F3F4F6', text: '#6B7280', label: 'Other' },
 }
-
-const team = [
-  'Christophe Mbonyingabo',
-  'Sylvestre Ngendahayo',
-  'Diane Kantarama',
-  'Cansilde Nyirahabimana',
-  'Emmanuel Nturanyenabo',
-  'Maurice Dukuzeyezu',
-  'Natacha Wihogora',
-  'Jeannette Dusabimana',
-]
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])

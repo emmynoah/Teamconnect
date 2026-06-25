@@ -60,8 +60,8 @@ export async function POST(req: NextRequest) {
     `
 
     await resend.emails.send({
-      from: 'hello@wamenta.com',
-      to: 'emmynoah20@gmail.com',
+      from: process.env.RESEND_FROM_EMAIL!,
+      to: process.env.SECURITY_ALERT_EMAIL!,
       subject: `Visitor Alert — ${title} · ${dateFormatted} at ${time}`,
       html,
     })

@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
     `
 
     await resend.emails.send({
-      from: 'hello@wamenta.com',
-      to: 'emmanuel.n@carsaministry.org',
+      from: process.env.RESEND_FROM_EMAIL!,
+      to: process.env.REPORTS_RECIPIENT_EMAIL!,
       subject: `CARSA Daily Report — ${today}`,
       html,
     })

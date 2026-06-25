@@ -1,0 +1,68 @@
+export const CARSA_TEAM = [
+  {
+    initials: 'CM',
+    full_name: 'Christophe Mbonyingabo',
+    title: 'Executive Director',
+    role: 'admin',
+    phone: '250788473951',
+    email: 'christophe.m@carsaministry.org',
+  },
+  {
+    initials: 'SN',
+    full_name: 'Sylvestre Ngendahayo',
+    title: 'Programs Director',
+    role: 'staff',
+    phone: '250788496140',
+    email: 'sylvestre.n@carsaministry.org',
+  },
+  {
+    initials: 'DK',
+    full_name: 'Diane Kantarama',
+    title: 'Community Empowerment Coordinator',
+    role: 'staff',
+    phone: '250785145160',
+    email: 'diane.k@carsaministry.org',
+  },
+  {
+    initials: 'CN',
+    full_name: 'Cansilde Nyirahabimana',
+    title: 'Finance and Administration Manager',
+    role: 'staff',
+    phone: '250783158824',
+    email: 'cansilde.n@carsaministry.org',
+  },
+  {
+    initials: 'EN',
+    full_name: 'Emmanuel Nturanyenabo',
+    title: 'Partnerships and Communications Lead',
+    role: 'staff',
+    phone: '250788782331',
+    email: 'emmanuel.n@carsaministry.org',
+  },
+  {
+    initials: 'MD',
+    full_name: 'Maurice Dukuzeyezu',
+    title: 'Programs Support Officer',
+    role: 'staff',
+    phone: '250788556899',
+    email: 'maurice.d@carsaministry.org',
+  },
+  {
+    initials: 'NW',
+    full_name: 'Natacha Wihogora',
+    title: 'Community Engagement Officer',
+    role: 'staff',
+    phone: '250788762226',
+    email: 'natacha.w@carsaministry.org',
+  },
+  {
+    initials: 'JD',
+    full_name: 'Jeannette Dusabimana',
+    title: 'MEL & Data Officer',
+    role: 'staff',
+    phone: '250786174856',
+    email: 'jeannette.d@carsaministry.org',
+  },
+]
+
+export const TEAM_NAMES = CARSA_TEAM.map(m => m.full_name)

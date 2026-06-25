@@ -1,17 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-const team = [
-  { name: 'Christophe Mbonyingabo', title: 'Executive Director' },
-  { name: 'Sylvestre Ngendahayo', title: 'Programs Director' },
-  { name: 'Diane Kantarama', title: 'Community Empowerment Coordinator' },
-  { name: 'Cansilde Nyirahabimana', title: 'Finance and Administration Manager' },
-  { name: 'Emmanuel Nturanyenabo', title: 'Partnerships and Communications Lead' },
-  { name: 'Maurice Dukuzeyezu', title: 'Programs Support Officer' },
-  { name: 'Natacha Wihogora', title: 'Community Engagement Officer' },
-  { name: 'Jeannette Dusabimana', title: 'MEL & Data Officer' },
-]
+import { CARSA_TEAM, TEAM_NAMES } from '@/lib/team'
 
 export default function ReportsPage() {
   const [selectedStaff, setSelectedStaff] = useState('')
@@ -31,7 +21,7 @@ export default function ReportsPage() {
     setStatus('submitting')
     setErrorMessage('')
 
-    const staff = team.find(m => m.name === selectedStaff)
+    const staff = CARSA_TEAM.find(m => m.full_name === selectedStaff)
 
     try {
       const res = await fetch('/api/reports/submit', {
@@ -112,8 +102,8 @@ export default function ReportsPage() {
               }}
             >
               <option value="">Select your name</option>
-              {team.map(m => (
-                <option key={m.name} value={m.name}>{m.name}</option>
+              {TEAM_NAMES.map(name => (
+                <option key={name} value={name}>{name}</option>
               ))}
             </select>
           </div>

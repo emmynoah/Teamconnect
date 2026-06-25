@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const CARSA_ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001'
+const CARSA_ORG_ID = process.env.CARSA_ORG_ID!
 
 export async function GET() {
   try {
