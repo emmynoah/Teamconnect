@@ -30,7 +30,7 @@ export default function LoginPage() {
 
     if (error) {
       setStatus('error')
-      setErrorMessage('Incorrect email or password. Please try again.')
+      setErrorMessage(error.message)
       return
     }
 
