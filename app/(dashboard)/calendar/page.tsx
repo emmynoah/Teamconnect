@@ -205,8 +205,8 @@ export default function CalendarPage() {
               style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
             >
               <option value="">Select host</option>
-              {team.map(m => (
-                <option key={m} value={m}>{m}</option>
+              {TEAM_NAMES.map(name => (
+                <option key={name} value={name}>{name}</option>
               ))}
             </select>
           </div>
