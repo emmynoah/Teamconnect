@@ -1,33 +1,43 @@
 import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { CARSA_TEAM } from '@/lib/team'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const serviceClient = createServiceClient(
+const supabaseAdmin = createServiceClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { email, accomplishments, lessons, challenges, tomorrowPlan } = await req.json()
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
-    const { accomplishments, lessons, challenges, tomorrowPlan } = await req.json()
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
+
+    if (profileError) {
+      console.error('Profile lookup error:', JSON.stringify(profileError))
+    }
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found for email: ' + email }, { status: 404 })
+    }
 
     const today = new Date().toISOString().slice(0, 10)
 
-    const { error: insertError } = await serviceClient
+    const { error: insertError } = await supabaseAdmin
       .from('daily_reports')
       .insert({
-        user_id: user.id,
+        user_id: profile.id,
         org_id: process.env.CARSA_ORG_ID,
         date: today,
         accomplishments,
@@ -38,12 +48,12 @@ export async function POST(req: NextRequest) {
       })
 
     if (insertError) {
-      console.error('DB insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to save report' }, { status: 500 })
+      console.error('DB insert failed:', JSON.stringify(insertError))
+      return NextResponse.json({ error: 'DB insert failed', details: insertError }, { status: 500 })
     }
 
-    const member = CARSA_TEAM.find(m => m.email === user.email)
-    const name = member?.full_name || user.email || 'Team Member'
+    const member = CARSA_TEAM.find(m => m.email === email)
+    const name = member?.full_name || email
     const title = member?.title || ''
 
     const formattedDate = new Date().toLocaleDateString('en-GB', {

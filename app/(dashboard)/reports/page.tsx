@@ -8,6 +8,7 @@ export default function ReportsPage() {
   const supabase = createClient()
   const [userName, setUserName] = useState('')
   const [userTitle, setUserTitle] = useState('')
+  const [userEmail, setUserEmail] = useState('')
   const [accomplishments, setAccomplishments] = useState('')
   const [lessons, setLessons] = useState('')
   const [challenges, setChallenges] = useState('')
@@ -21,6 +22,7 @@ export default function ReportsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      setUserEmail(user.email || '')
       const match = CARSA_TEAM.find(m => m.email === user.email)
       if (match) {
         setUserName(match.full_name)
@@ -47,7 +49,7 @@ export default function ReportsPage() {
       const res = await fetch('/api/reports/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accomplishments, lessons, challenges, tomorrowPlan }),
+        body: JSON.stringify({ email: userEmail, accomplishments, lessons, challenges, tomorrowPlan }),
       })
 
       if (!res.ok) throw new Error('Submission failed')
