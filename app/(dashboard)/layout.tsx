@@ -46,6 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const isLeader = userEmail === 'christophe.m@carsaministry.org'
+  const isAdmin = userEmail === 'emmanuel.n@carsaministry.org'
 
   const navLinks = [
     { href: '/', label: 'Home' },
@@ -53,6 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/reports', label: 'Reports' },
     { href: '/calendar', label: 'Calendar' },
     ...(isLeader ? [{ href: '/leader', label: 'Leader' }] : []),
+    ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
 
   return (
