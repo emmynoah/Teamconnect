@@ -45,11 +45,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login')
   }
 
+  const isLeader = userEmail === 'christophe.m@carsaministry.org'
+
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/directory', label: 'Directory' },
     { href: '/reports', label: 'Reports' },
     { href: '/calendar', label: 'Calendar' },
+    ...(isLeader ? [{ href: '/leader', label: 'Leader' }] : []),
   ]
 
   return (
