@@ -10,6 +10,9 @@ export default function DashboardPage() {
   const [upcomingCount, setUpcomingCount] = useState(0)
   const [message, setMessage] = useState('')
   const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [proofread, setProofread] = useState('')
+  const [proofreadStatus, setProofreadStatus] = useState<'idle' | 'proofreading' | 'done' | 'error'>('idle')
+  const [submittedEmails, setSubmittedEmails] = useState<string[]>([])
 
   const supabase = createClient()
 
@@ -45,6 +48,16 @@ export default function DashboardPage() {
       const submittedUserIds = reports?.map(r => r.user_id) || []
       setSubmittedCount(submittedUserIds.length)
 
+      if (submittedUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', submittedUserIds)
+        setSubmittedEmails(profiles?.map(p => p.email) || [])
+      } else {
+        setSubmittedEmails([])
+      }
+
       const { data: events } = await supabase
         .from('events')
         .select('id')
@@ -59,21 +72,43 @@ export default function DashboardPage() {
 
   const handleSend = async (channel: 'whatsapp' | 'email' | 'both') => {
     if (!message.trim()) return
-    setSendStatus('sending')
 
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+      return
+    }
+
+    setSendStatus('sending')
     try {
       const res = await fetch('/api/dashboard/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, channel, senderName: userName }),
       })
-
       if (!res.ok) throw new Error('Failed to send')
       setSendStatus('sent')
       setMessage('')
       setTimeout(() => setSendStatus('idle'), 3000)
     } catch {
       setSendStatus('error')
+    }
+  }
+
+  const handleProofread = async () => {
+    if (!message.trim()) return
+    setProofreadStatus('proofreading')
+    try {
+      const res = await fetch('/api/dashboard/proofread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error('Failed')
+      setProofread(data.improved)
+      setProofreadStatus('done')
+    } catch {
+      setProofreadStatus('error')
     }
   }
 
@@ -128,7 +163,7 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => handleSend('whatsapp')}
-            disabled={sendStatus === 'sending' || !message.trim()}
+            disabled={!message.trim()}
             className="px-4 py-2 rounded-lg text-sm font-medium text-[#374151] transition-colors duration-150"
             style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
           >
@@ -142,7 +177,34 @@ export default function DashboardPage() {
           >
             Send to Both
           </button>
+          <button
+            onClick={handleProofread}
+            disabled={proofreadStatus === 'proofreading' || !message.trim()}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-[#374151] transition-colors duration-150"
+            style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
+          >
+            {proofreadStatus === 'proofreading' ? 'Proofreading...' : 'AI Proofread'}
+          </button>
         </div>
+
+        {proofreadStatus === 'done' && proofread && (
+          <div
+            className="mt-3 p-3 rounded-lg text-sm"
+            style={{ backgroundColor: '#F0FAF6', border: '1px solid #0A7E5A' }}
+          >
+            <p className="text-xs font-semibold mb-1" style={{ color: '#0A7E5A' }}>
+              Suggested revision:
+            </p>
+            <p className="text-[#374151] mb-2">{proofread}</p>
+            <button
+              onClick={() => { setMessage(proofread); setProofread(''); setProofreadStatus('idle') }}
+              className="text-xs font-medium px-3 py-1 rounded"
+              style={{ backgroundColor: '#0A7E5A', color: 'white' }}
+            >
+              Use this
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Stats Row */}
@@ -190,8 +252,8 @@ export default function DashboardPage() {
               </div>
               <div
                 className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: '#D1D5DB' }}
-                title="Pending"
+                style={{ backgroundColor: submittedEmails.includes(member.email) ? '#0A7E5A' : '#D1D5DB' }}
+                title={submittedEmails.includes(member.email) ? 'Submitted' : 'Pending'}
               />
             </div>
           ))}
