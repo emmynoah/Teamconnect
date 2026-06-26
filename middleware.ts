@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
 
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
-    url.pathname = '/directory'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 

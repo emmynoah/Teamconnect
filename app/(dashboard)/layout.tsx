@@ -45,6 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const navLinks = [
+    { href: '/', label: 'Home' },
     { href: '/directory', label: 'Directory' },
     { href: '/reports', label: 'Reports' },
     { href: '/calendar', label: 'Calendar' },
