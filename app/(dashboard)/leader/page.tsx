@@ -80,12 +80,15 @@ export default function LeaderPage() {
     const comment = comments[reportId]
     if (!comment?.trim()) return
 
+    const report = reports.find(r => r.id === reportId)
+    const memberEmail = report?.memberEmail || ''
+
     setCommentStatus(prev => ({ ...prev, [reportId]: 'saving' }))
 
     await fetch('/api/leader/comment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reportId, comment }),
+      body: JSON.stringify({ reportId, comment, memberEmail }),
     })
 
     setCommentStatus(prev => ({ ...prev, [reportId]: 'saved' }))

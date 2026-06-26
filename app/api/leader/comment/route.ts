@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: NextRequest) {
   try {
-    const { reportId, comment } = await req.json()
+    const { reportId, comment, memberEmail } = await req.json()
 
     const today = new Date().toLocaleDateString('en-GB', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
-      to: process.env.REPORTS_RECIPIENT_EMAIL!,
+      to: memberEmail,
       subject: `Leader Feedback — ${today}`,
       html,
     })
