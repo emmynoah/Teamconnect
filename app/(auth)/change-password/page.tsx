@@ -4,18 +4,30 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+export default function ChangePasswordPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorMessage('Please enter your email and password.')
+  const handleChange = async () => {
+    if (!password || !confirm) {
+      setErrorMessage('Please fill in both fields.')
+      setStatus('error')
+      return
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.')
+      setStatus('error')
+      return
+    }
+
+    if (password !== confirm) {
+      setErrorMessage('Passwords do not match.')
       setStatus('error')
       return
     }
@@ -23,29 +35,15 @@ export default function LoginPage() {
     setStatus('loading')
     setErrorMessage('')
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
       setStatus('error')
-      setErrorMessage('Incorrect email or password. Please try again.')
+      setErrorMessage('Something went wrong. Please try again.')
       return
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    const lastSignIn = user?.last_sign_in_at
-    const createdAt = user?.created_at
-
-    const isFirstLogin = lastSignIn && createdAt &&
-      new Date(lastSignIn).getTime() - new Date(createdAt).getTime() < 60000
-
-    if (isFirstLogin) {
-      router.push('/change-password')
-    } else {
-      router.push('/')
-    }
+    router.push('/')
     router.refresh()
   }
 
@@ -66,39 +64,41 @@ export default function LoginPage() {
           >
             <span className="text-white font-bold text-base">TC</span>
           </div>
-          <h1 className="text-lg font-semibold text-[#111827]">Welcome to TeamConnect</h1>
-          <p className="text-sm text-[#6B7280] mt-1">CARSA Internal Platform</p>
+          <h1 className="text-lg font-semibold text-[#111827]">Set your password</h1>
+          <p className="text-sm text-[#6B7280] mt-1 text-center">
+            Welcome to TeamConnect. Please create your own password to continue.
+          </p>
         </div>
 
-        {/* Email */}
+        {/* New Password */}
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#111827] mb-1">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="yourname@carsaministry.org"
-            className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none"
-            style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-          />
-        </div>
-
-        {/* Password */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold text-[#111827] mb-1">
-            Password
+            New password
           </label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            placeholder="Enter your password"
+            placeholder="At least 6 characters"
             className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none"
             style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            onKeyDown={e => e.key === 'Enter' && handleChange()}
+          />
+        </div>
+
+        {/* Confirm Password */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-[#111827] mb-1">
+            Confirm password
+          </label>
+          <input
+            type="password"
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            placeholder="Repeat your password"
+            className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none"
+            style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
+            onKeyDown={e => e.key === 'Enter' && handleChange()}
           />
         </div>
 
@@ -111,18 +111,18 @@ export default function LoginPage() {
 
         {/* Button */}
         <button
-          onClick={handleLogin}
+          onClick={handleChange}
           disabled={status === 'loading'}
           className="w-full py-3 rounded-lg text-sm font-bold text-black transition-colors duration-150"
           style={{
             backgroundColor: status === 'loading' ? '#E5E7EB' : '#F48221',
           }}
         >
-          {status === 'loading' ? 'Signing in...' : 'Sign in to TeamConnect'}
+          {status === 'loading' ? 'Saving...' : 'Set my password'}
         </button>
 
-        <p className="text-xs text-center text-[#6B7280] mt-6">
-          First time? Use the password given to you by your administrator.
+        <p className="text-xs text-center text-[#6B7280] mt-4">
+          You can always change your password later from your profile.
         </p>
       </div>
     </div>
