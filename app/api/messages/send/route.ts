@@ -13,63 +13,34 @@ const CARSA_ORG_ID = process.env.CARSA_ORG_ID!
 void CARSA_ORG_ID
 
 export async function POST(req: NextRequest) {
-  console.log('[send] handler invoked')
-
-  let body: Record<string, unknown>
   try {
-    body = await req.json()
-  } catch (e) {
-    console.error('[send] failed to parse request body:', e)
-    return NextResponse.json({ step: 'parse', error: String(e) }, { status: 400 })
-  }
+    const { content, visibility, recipientEmail, senderEmail, senderName, senderInitials, isLeaderMessage } = await req.json()
 
-  const { content, visibility, recipientEmail, senderEmail, senderName, senderInitials, isLeaderMessage } = body as {
-    content: string
-    visibility: string
-    recipientEmail?: string
-    senderEmail: string
-    senderName: string
-    senderInitials: string
-    isLeaderMessage?: boolean
-  }
+    const { data: message, error: dbError } = await supabase
+      .from('messages')
+      .insert({
+        sender_email: senderEmail,
+        sender_name: senderName,
+        sender_initials: senderInitials,
+        content,
+        visibility,
+        recipient_email: recipientEmail || null,
+        is_leader_message: isLeaderMessage || false,
+      })
+      .select()
+      .single()
 
-  console.log('[send] payload:', { visibility, senderEmail, senderName, recipientEmail: recipientEmail || null })
-  console.log('[send] env check — SUPABASE_URL present:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log('[send] env check — SERVICE_ROLE_KEY present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-  console.log('[send] env check — RESEND_API_KEY present:', !!process.env.RESEND_API_KEY)
-  console.log('[send] env check — RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL)
+    if (dbError) {
+      console.error('[messages/send] db error:', JSON.stringify(dbError))
+      return NextResponse.json({ error: dbError.message, code: dbError.code }, { status: 500 })
+    }
 
-  // ── Step 1: DB insert ────────────────────────────────────────────────────
-  console.log('[send] step 1: inserting into messages table')
-  const { data: message, error: dbError } = await supabase
-    .from('messages')
-    .insert({
-      sender_email: senderEmail,
-      sender_name: senderName,
-      sender_initials: senderInitials,
-      content,
-      visibility,
-      recipient_email: recipientEmail || null,
-      is_leader_message: isLeaderMessage || false,
+    const today = new Date().toLocaleDateString('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     })
-    .select()
-    .single()
 
-  if (dbError) {
-    console.error('[send] DB insert failed:', JSON.stringify(dbError, null, 2))
-    return NextResponse.json({ step: 'db_insert', error: dbError.message, code: dbError.code, details: dbError.details }, { status: 500 })
-  }
-  console.log('[send] step 1 OK — message id:', message.id)
-
-  // ── Step 2: Email ────────────────────────────────────────────────────────
-  const today = new Date().toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-
-  try {
     if (visibility === 'team') {
       const recipients = CARSA_TEAM.map(m => m.email)
-      console.log('[send] step 2: sending team email to', recipients.length, 'recipients')
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #374151;">
           <div style="background-color: #111827; padding: 24px 32px; border-radius: 8px 8px 0 0;">
@@ -96,12 +67,10 @@ export async function POST(req: NextRequest) {
         subject: `${isLeaderMessage ? 'Announcement' : 'Team message'} from ${senderName} — ${today}`,
         html,
       })
-      console.log('[send] step 2 result:', JSON.stringify(emailResult, null, 2))
+      if (emailResult.error) {
+        console.error('[messages/send] resend error:', JSON.stringify(emailResult.error))
+      }
     } else if (visibility === 'private' && recipientEmail) {
-      console.log('[send] step 2: sending private email to', recipientEmail)
-      const recipient = CARSA_TEAM.find(m => m.email === recipientEmail)
-      const recipientName = recipient?.full_name.split(' ')[0] || 'there'
-      void recipientName
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #374151;">
           <div style="background-color: #111827; padding: 24px 32px; border-radius: 8px 8px 0 0;">
@@ -128,14 +97,14 @@ export async function POST(req: NextRequest) {
         subject: `Private message from ${senderName}`,
         html,
       })
-      console.log('[send] step 2 result:', JSON.stringify(emailResult, null, 2))
+      if (emailResult.error) {
+        console.error('[messages/send] resend error:', JSON.stringify(emailResult.error))
+      }
     }
-  } catch (emailError) {
-    console.error('[send] email failed:', JSON.stringify(emailError, null, 2))
-    // Message was saved — return success but flag the email failure
-    return NextResponse.json({ success: true, message, emailError: String(emailError) })
-  }
 
-  console.log('[send] done')
-  return NextResponse.json({ success: true, message })
+    return NextResponse.json({ success: true, message })
+  } catch (error) {
+    console.error('[messages/send] unhandled error:', error)
+    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
+  }
 }
