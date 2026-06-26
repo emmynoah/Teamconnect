@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { CARSA_TEAM, TEAM_NAMES } from '@/lib/team'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { CARSA_TEAM } from '@/lib/team'
 
 export default function ReportsPage() {
-  const [selectedStaff, setSelectedStaff] = useState('')
+  const supabase = createClient()
+  const [userName, setUserName] = useState('')
+  const [userTitle, setUserTitle] = useState('')
   const [accomplishments, setAccomplishments] = useState('')
   const [lessons, setLessons] = useState('')
   const [challenges, setChallenges] = useState('')
@@ -12,8 +15,27 @@ export default function ReportsPage() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const match = CARSA_TEAM.find(m => m.email === user.email)
+      if (match) {
+        setUserName(match.full_name)
+        setUserTitle(match.title)
+      } else {
+        const parts = (user.email || '').split('@')[0].split('.')
+        setUserName(parts.map((p: string) => p.charAt(0).toUpperCase() + p.slice(1)).join(' '))
+        setUserTitle('')
+      }
+    }
+    init()
+  }, [])
+
   const handleSubmit = async () => {
-    if (!selectedStaff || !accomplishments || !lessons || !challenges || !tomorrowPlan) {
+    if (!accomplishments || !lessons || !challenges || !tomorrowPlan) {
       setErrorMessage('Please fill in all fields before submitting.')
       return
     }
@@ -21,26 +43,16 @@ export default function ReportsPage() {
     setStatus('submitting')
     setErrorMessage('')
 
-    const staff = CARSA_TEAM.find(m => m.full_name === selectedStaff)
-
     try {
       const res = await fetch('/api/reports/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: selectedStaff,
-          title: staff?.title || '',
-          accomplishments,
-          lessons,
-          challenges,
-          tomorrowPlan,
-        }),
+        body: JSON.stringify({ accomplishments, lessons, challenges, tomorrowPlan }),
       })
 
       if (!res.ok) throw new Error('Submission failed')
 
       setStatus('success')
-      setSelectedStaff('')
       setAccomplishments('')
       setLessons('')
       setChallenges('')
@@ -87,25 +99,10 @@ export default function ReportsPage() {
           className="bg-white rounded-xl p-6 max-w-2xl"
           style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
         >
-          {/* Staff Selector */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-[#111827] mb-2">
-              Your Name
-            </label>
-            <select
-              value={selectedStaff}
-              onChange={e => setSelectedStaff(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none focus:ring-2"
-              style={{
-                border: '1px solid #E5E7EB',
-                backgroundColor: '#F9FAFB',
-              }}
-            >
-              <option value="">Select your name</option>
-              {TEAM_NAMES.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
+          {/* Logged-in user — read-only */}
+          <div className="mb-6 px-4 py-3 rounded-lg" style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+            <p className="text-sm font-semibold text-[#111827]">{userName || '...'}</p>
+            {userTitle && <p className="text-xs text-[#6B7280] mt-0.5">{userTitle}</p>}
           </div>
 
           {/* Question 1 */}

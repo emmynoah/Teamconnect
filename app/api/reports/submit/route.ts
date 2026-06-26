@@ -1,13 +1,52 @@
 import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { CARSA_TEAM } from '@/lib/team'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+const serviceClient = createServiceClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 export async function POST(req: NextRequest) {
   try {
-    const { name, title, accomplishments, lessons, challenges, tomorrowPlan } = await req.json()
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    const today = new Date().toLocaleDateString('en-GB', {
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    const { accomplishments, lessons, challenges, tomorrowPlan } = await req.json()
+
+    const today = new Date().toISOString().slice(0, 10)
+
+    const { error: insertError } = await serviceClient
+      .from('daily_reports')
+      .insert({
+        user_id: user.id,
+        org_id: process.env.CARSA_ORG_ID,
+        date: today,
+        accomplishments,
+        lessons,
+        challenges,
+        tomorrow_plan: tomorrowPlan,
+        submitted_at: new Date().toISOString(),
+      })
+
+    if (insertError) {
+      console.error('DB insert error:', insertError)
+      return NextResponse.json({ error: 'Failed to save report' }, { status: 500 })
+    }
+
+    const member = CARSA_TEAM.find(m => m.email === user.email)
+    const name = member?.full_name || user.email || 'Team Member'
+    const title = member?.title || ''
+
+    const formattedDate = new Date().toLocaleDateString('en-GB', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -18,7 +57,7 @@ export async function POST(req: NextRequest) {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #374151;">
         <div style="background-color: #111827; padding: 24px 32px; border-radius: 8px 8px 0 0;">
           <h1 style="color: white; margin: 0; font-size: 18px; font-weight: bold;">CARSA Daily Report</h1>
-          <p style="color: #9CA3AF; margin: 4px 0 0 0; font-size: 14px;">${today}</p>
+          <p style="color: #9CA3AF; margin: 4px 0 0 0; font-size: 14px;">${formattedDate}</p>
         </div>
 
         <div style="background-color: #ffffff; padding: 32px; border: 1px solid #E5E7EB; border-top: none; border-radius: 0 0 8px 8px;">
@@ -57,7 +96,7 @@ export async function POST(req: NextRequest) {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
       to: process.env.REPORTS_RECIPIENT_EMAIL!,
-      subject: `CARSA Daily Report — ${today}`,
+      subject: `CARSA Daily Report — ${formattedDate} — ${name}`,
       html,
     })
 
