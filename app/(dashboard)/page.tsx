@@ -4,18 +4,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CARSA_TEAM } from '@/lib/team'
 
-interface ReportStatus {
-  initials: string
-  full_name: string
-  title: string
-  submitted: boolean
-}
-
 export default function DashboardPage() {
   const [userName, setUserName] = useState('')
   const [submittedCount, setSubmittedCount] = useState(0)
   const [upcomingCount, setUpcomingCount] = useState(0)
-  const [reportStatuses, setReportStatuses] = useState<ReportStatus[]>([])
   const [message, setMessage] = useState('')
   const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
 
@@ -32,6 +24,7 @@ export default function DashboardPage() {
   const hour = today.getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -51,14 +44,6 @@ export default function DashboardPage() {
 
       const submittedUserIds = reports?.map(r => r.user_id) || []
       setSubmittedCount(submittedUserIds.length)
-
-      const statuses = CARSA_TEAM.map(member => ({
-        initials: member.initials,
-        full_name: member.full_name,
-        title: member.title,
-        submitted: false,
-      }))
-      setReportStatuses(statuses)
 
       const { data: events } = await supabase
         .from('events')
