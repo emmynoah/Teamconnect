@@ -4,28 +4,46 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CARSA_TEAM } from '@/lib/team'
 
+interface Message {
+  id: string
+  sender_email: string
+  sender_name: string
+  sender_initials: string
+  content: string
+  visibility: 'team' | 'private'
+  recipient_email: string | null
+  is_leader_message: boolean
+  created_at: string
+}
+
 export default function DashboardPage() {
   const [userName, setUserName] = useState('')
-  const [submittedCount, setSubmittedCount] = useState(0)
-  const [upcomingCount, setUpcomingCount] = useState(0)
+  const [userEmail, setUserEmail] = useState('')
+  const [userInitials, setUserInitials] = useState('')
+  const [isLeader, setIsLeader] = useState(false)
   const [message, setMessage] = useState('')
-  const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [visibility, setVisibility] = useState<'team' | 'private'>('team')
+  const [recipientEmail, setRecipientEmail] = useState('')
   const [proofread, setProofread] = useState('')
-  const [proofreadStatus, setProofreadStatus] = useState<'idle' | 'proofreading' | 'done' | 'error'>('idle')
+  const [proofreadStatus, setProofreadStatus] = useState<'idle' | 'loading' | 'done'>('idle')
+  const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [teamMessages, setTeamMessages] = useState<Message[]>([])
+  const [privateMessages, setPrivateMessages] = useState<Message[]>([])
+  const [upcomingCount, setUpcomingCount] = useState(0)
+  const [submittedCount, setSubmittedCount] = useState(0)
   const [submittedEmails, setSubmittedEmails] = useState<string[]>([])
+  const [showStats, setShowStats] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
 
   const today = new Date()
   const dateString = today.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-
   const hour = today.getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const todayStr = today.toISOString().split('T')[0]
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -33,70 +51,62 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const match = CARSA_TEAM.find(m => m.email === user.email)
+      const email = user.email || ''
+      setUserEmail(email)
+
+      const match = CARSA_TEAM.find(m => m.email === email)
       if (match) {
         setUserName(match.full_name.split(' ')[0])
+        setUserInitials(match.initials)
       }
 
-      const todayStr = today.toISOString().split('T')[0]
+      const isLeaderOrAdmin =
+        email === 'christophe.m@carsaministry.org' ||
+        email === 'emmanuel.n@carsaministry.org'
+      setIsLeader(email === 'christophe.m@carsaministry.org')
+      setShowStats(isLeaderOrAdmin)
 
+      // Fetch reports
       const { data: reports } = await supabase
         .from('daily_reports')
         .select('user_id')
         .eq('date', todayStr)
 
-      const submittedUserIds = reports?.map(r => r.user_id) || []
-      setSubmittedCount(submittedUserIds.length)
+      const userIds = reports?.map(r => r.user_id) || []
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email')
 
-      if (submittedUserIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .in('id', submittedUserIds)
-        setSubmittedEmails(profiles?.map(p => p.email) || [])
-      } else {
-        setSubmittedEmails([])
-      }
+      const emails = (profiles || [])
+        .filter(p => userIds.includes(p.id))
+        .map(p => p.email)
 
+      setSubmittedEmails(emails)
+      setSubmittedCount(emails.length)
+
+      // Fetch events
       const { data: events } = await supabase
         .from('events')
         .select('id')
         .gte('date', todayStr)
-        .eq('org_id', process.env.NEXT_PUBLIC_CARSA_ORG_ID || 'a1b2c3d4-0000-0000-0000-000000000001')
 
       setUpcomingCount(events?.length || 0)
-    }
 
+      // Fetch messages feed
+      const res = await fetch(`/api/messages/feed?email=${encodeURIComponent(email)}`)
+      const data = await res.json()
+      setTeamMessages(data.teamMessages || [])
+      setPrivateMessages(data.privateMessages || [])
+
+      setLoading(false)
+    }
     init()
   }, [])
 
-  const handleSend = async (channel: 'whatsapp' | 'email' | 'both') => {
-    if (!message.trim()) return
-
-    if (channel === 'whatsapp') {
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
-      return
-    }
-
-    setSendStatus('sending')
-    try {
-      const res = await fetch('/api/dashboard/send-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, channel, senderName: userName }),
-      })
-      if (!res.ok) throw new Error('Failed to send')
-      setSendStatus('sent')
-      setMessage('')
-      setTimeout(() => setSendStatus('idle'), 3000)
-    } catch {
-      setSendStatus('error')
-    }
-  }
-
   const handleProofread = async () => {
     if (!message.trim()) return
-    setProofreadStatus('proofreading')
+    setProofreadStatus('loading')
+    setProofread('')
     try {
       const res = await fetch('/api/dashboard/proofread', {
         method: 'POST',
@@ -104,15 +114,64 @@ export default function DashboardPage() {
         body: JSON.stringify({ message }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error('Failed')
-      setProofread(data.improved)
+      setProofread(data.improved || '')
       setProofreadStatus('done')
     } catch {
-      setProofreadStatus('error')
+      setProofreadStatus('idle')
     }
   }
 
-  const pending = CARSA_TEAM.length - submittedCount
+  const handleSend = async () => {
+    if (!message.trim()) return
+    if (visibility === 'private' && !recipientEmail) return
+    setSendStatus('sending')
+
+    try {
+      const match = CARSA_TEAM.find(m => m.email === userEmail)
+      const res = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: message,
+          visibility,
+          recipientEmail: visibility === 'private' ? recipientEmail : null,
+          senderEmail: userEmail,
+          senderName: match?.full_name || userName,
+          senderInitials: match?.initials || userInitials,
+          isLeaderMessage: isLeader && visibility === 'team',
+        }),
+      })
+
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+
+      // Add to local feed immediately
+      if (visibility === 'team') {
+        setTeamMessages(prev => [data.message, ...prev])
+      } else {
+        setPrivateMessages(prev => [data.message, ...prev])
+      }
+
+      setSendStatus('sent')
+      setMessage('')
+      setProofread('')
+      setTimeout(() => setSendStatus('idle'), 3000)
+    } catch {
+      setSendStatus('error')
+    }
+  }
+
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit',
+    })
+  }
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'short',
+    })
+  }
 
   return (
     <div>
@@ -124,139 +183,273 @@ export default function DashboardPage() {
         </h1>
       </div>
 
-      {/* Morning Prompt */}
-      <div
-        className="bg-white rounded-xl p-6 mb-6"
-        style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
-      >
-        <p className="text-sm font-semibold text-[#111827] mb-3">
-          What do you want to share with the team today?
-        </p>
-        <textarea
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          rows={3}
-          placeholder="Write a message for the team..."
-          className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none resize-none mb-4"
-          style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {sendStatus === 'sent' && (
-          <p className="text-sm mb-3" style={{ color: '#0A7E5A' }}>
-            ✅ Message sent to the team.
-          </p>
-        )}
-        {sendStatus === 'error' && (
-          <p className="text-sm mb-3" style={{ color: '#F48221' }}>
-            Something went wrong. Please try again.
-          </p>
-        )}
+        {/* Left Column */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
 
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => handleSend('email')}
-            disabled={sendStatus === 'sending' || !message.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-black transition-colors duration-150"
-            style={{ backgroundColor: '#F48221' }}
+          {/* Morning Prompt */}
+          <div
+            className="bg-white rounded-xl p-6"
+            style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
           >
-            Send by Email
-          </button>
-          <button
-            onClick={() => handleSend('whatsapp')}
-            disabled={!message.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-[#374151] transition-colors duration-150"
-            style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
-          >
-            Send to WhatsApp
-          </button>
-          <button
-            onClick={() => handleSend('both')}
-            disabled={sendStatus === 'sending' || !message.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-[#374151] transition-colors duration-150"
-            style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
-          >
-            Send to Both
-          </button>
-          <button
-            onClick={handleProofread}
-            disabled={proofreadStatus === 'proofreading' || !message.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-[#374151] transition-colors duration-150"
-            style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
-          >
-            {proofreadStatus === 'proofreading' ? 'Proofreading...' : 'AI Proofread'}
-          </button>
+            <p className="text-sm font-semibold text-[#111827] mb-3">
+              What do you want to share with the team today?
+            </p>
+
+            {/* Visibility toggle */}
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setVisibility('team')}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: visibility === 'team' ? '#0A7E5A' : '#F9FAFB',
+                  color: visibility === 'team' ? 'white' : '#374151',
+                  border: '1px solid #E5E7EB',
+                }}
+              >
+                Whole Team
+              </button>
+              <button
+                onClick={() => setVisibility('private')}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: visibility === 'private' ? '#111827' : '#F9FAFB',
+                  color: visibility === 'private' ? 'white' : '#374151',
+                  border: '1px solid #E5E7EB',
+                }}
+              >
+                Private Message
+              </button>
+            </div>
+
+            {/* Recipient selector for private */}
+            {visibility === 'private' && (
+              <select
+                value={recipientEmail}
+                onChange={e => setRecipientEmail(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none mb-3"
+                style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
+              >
+                <option value="">Select a team member...</option>
+                {CARSA_TEAM.filter(m => m.email !== userEmail).map(m => (
+                  <option key={m.email} value={m.email}>{m.full_name}</option>
+                ))}
+              </select>
+            )}
+
+            <textarea
+              value={message}
+              onChange={e => { setMessage(e.target.value); setProofread('') }}
+              rows={3}
+              placeholder={visibility === 'team' ? 'Write a message for the team...' : 'Write a private message...'}
+              className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none resize-none mb-3"
+              style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
+            />
+
+            {/* Proofread result */}
+            {proofread && (
+              <div
+                className="rounded-lg p-4 mb-3"
+                style={{ backgroundColor: '#E8F5F0', border: '1px solid #0A7E5A' }}
+              >
+                <p className="text-xs font-semibold text-[#0A7E5A] mb-2">✅ AI suggestion:</p>
+                <p className="text-sm text-[#374151] leading-relaxed">{proofread}</p>
+                <button
+                  onClick={() => { setMessage(proofread); setProofread('') }}
+                  className="mt-3 px-4 py-1.5 rounded-lg text-xs font-medium text-white"
+                  style={{ backgroundColor: '#0A7E5A' }}
+                >
+                  Use this version
+                </button>
+              </div>
+            )}
+
+            {proofreadStatus === 'loading' && (
+              <p className="text-xs text-[#6B7280] mb-3">Proofreading...</p>
+            )}
+
+            {sendStatus === 'sent' && (
+              <p className="text-sm mb-3" style={{ color: '#0A7E5A' }}>✅ Message sent.</p>
+            )}
+            {sendStatus === 'error' && (
+              <p className="text-sm mb-3" style={{ color: '#F48221' }}>Something went wrong. Please try again.</p>
+            )}
+
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleProofread}
+                disabled={proofreadStatus === 'loading' || !message.trim()}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#0A7E5A' }}
+              >
+                {proofreadStatus === 'loading' ? 'Proofreading...' : 'Proofread with AI'}
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={sendStatus === 'sending' || !message.trim()}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-black"
+                style={{ backgroundColor: sendStatus === 'sending' ? '#E5E7EB' : '#F48221' }}
+              >
+                {sendStatus === 'sending' ? 'Sending...' : visibility === 'team' ? 'Send to Team' : 'Send Private Message'}
+              </button>
+            </div>
+          </div>
+
+          {/* Team Feed */}
+          <div>
+            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
+              Team Feed
+            </p>
+            {loading ? (
+              <p className="text-sm text-[#6B7280]">Loading...</p>
+            ) : teamMessages.length === 0 ? (
+              <div
+                className="bg-white rounded-xl p-6 text-center"
+                style={{ border: '1px solid #E5E7EB' }}
+              >
+                <p className="text-sm text-[#6B7280]">No team messages yet. Be the first to share something.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {teamMessages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className="bg-white rounded-xl p-5"
+                    style={{
+                      border: '1px solid #E5E7EB',
+                      borderLeft: `4px solid ${msg.is_leader_message ? '#111827' : '#0A7E5A'}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{
+                          backgroundColor: msg.is_leader_message ? '#111827' : '#E8F5F0',
+                          color: msg.is_leader_message ? 'white' : '#0A7E5A',
+                        }}
+                      >
+                        {msg.sender_initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-[#111827]">{msg.sender_name}</p>
+                          {msg.is_leader_message && (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-medium"
+                              style={{ backgroundColor: '#111827', color: 'white' }}
+                            >
+                              Executive Director
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[#6B7280]">
+                          {formatDate(msg.created_at)} at {formatTime(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-[#374151] leading-relaxed">{msg.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Private Messages */}
+          {privateMessages.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
+                Private Messages
+              </p>
+              <div className="flex flex-col gap-3">
+                {privateMessages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className="bg-white rounded-xl p-5"
+                    style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #111827' }}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
+                      >
+                        {msg.sender_initials}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#111827]">
+                          {msg.sender_email === userEmail ? `To: ${msg.recipient_email}` : `From: ${msg.sender_name}`}
+                        </p>
+                        <p className="text-xs text-[#6B7280]">
+                          {formatDate(msg.created_at)} at {formatTime(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-[#374151] leading-relaxed">{msg.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {proofreadStatus === 'done' && proofread && (
-          <div
-            className="mt-3 p-3 rounded-lg text-sm"
-            style={{ backgroundColor: '#F0FAF6', border: '1px solid #0A7E5A' }}
-          >
-            <p className="text-xs font-semibold mb-1" style={{ color: '#0A7E5A' }}>
-              Suggested revision:
-            </p>
-            <p className="text-[#374151] mb-2">{proofread}</p>
-            <button
-              onClick={() => { setMessage(proofread); setProofread(''); setProofreadStatus('idle') }}
-              className="text-xs font-medium px-3 py-1 rounded"
-              style={{ backgroundColor: '#0A7E5A', color: 'white' }}
-            >
-              Use this
-            </button>
-          </div>
-        )}
-      </div>
+        {/* Right Column */}
+        <div className="flex flex-col gap-4">
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Reports submitted', value: submittedCount, color: '#0A7E5A' },
-          { label: 'Still pending', value: pending, color: '#F48221' },
-          { label: 'Upcoming events', value: upcomingCount, color: '#111827' },
-          { label: 'Team members', value: CARSA_TEAM.length, color: '#111827' },
-        ].map(stat => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-xl p-4 text-center"
-            style={{ border: '1px solid #E5E7EB' }}
-          >
-            <p className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
-            <p className="text-xs text-[#6B7280] mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Team Report Status */}
-      <div>
-        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
-          Today&apos;s report status
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {CARSA_TEAM.map(member => (
-            <div
-              key={member.initials}
-              className="bg-white rounded-xl p-4 flex items-center gap-3"
-              style={{ border: '1px solid #E5E7EB' }}
-            >
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
-              >
-                {member.initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#111827] truncate">
-                  {member.full_name.split(' ')[0]} {member.full_name.split(' ')[1]}
-                </p>
-                <p className="text-xs text-[#6B7280] truncate">{member.title}</p>
-              </div>
-              <div
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: submittedEmails.includes(member.email) ? '#0A7E5A' : '#D1D5DB' }}
-                title={submittedEmails.includes(member.email) ? 'Submitted' : 'Pending'}
-              />
+          {/* Stats */}
+          <div className="flex flex-col gap-3">
+            {showStats && (
+              <>
+                <div className="bg-white rounded-xl p-4 text-center" style={{ border: '1px solid #E5E7EB' }}>
+                  <p className="text-2xl font-bold" style={{ color: '#0A7E5A' }}>{submittedCount}</p>
+                  <p className="text-xs text-[#6B7280] mt-1">Reports submitted</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 text-center" style={{ border: '1px solid #E5E7EB' }}>
+                  <p className="text-2xl font-bold" style={{ color: '#F48221' }}>{CARSA_TEAM.length - submittedCount}</p>
+                  <p className="text-xs text-[#6B7280] mt-1">Still pending</p>
+                </div>
+              </>
+            )}
+            <div className="bg-white rounded-xl p-4 text-center" style={{ border: '1px solid #E5E7EB' }}>
+              <p className="text-2xl font-bold text-[#111827]">{upcomingCount}</p>
+              <p className="text-xs text-[#6B7280] mt-1">Upcoming events</p>
             </div>
-          ))}
+            <div className="bg-white rounded-xl p-4 text-center" style={{ border: '1px solid #E5E7EB' }}>
+              <p className="text-2xl font-bold text-[#111827]">{CARSA_TEAM.length}</p>
+              <p className="text-xs text-[#6B7280] mt-1">Team members</p>
+            </div>
+          </div>
+
+          {/* Report Status — leader/admin only */}
+          {showStats && (
+            <div>
+              <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">
+                Today&apos;s report status
+              </p>
+              <div className="flex flex-col gap-2">
+                {CARSA_TEAM.map(member => (
+                  <div
+                    key={member.initials}
+                    className="bg-white rounded-xl p-3 flex items-center gap-3"
+                    style={{ border: '1px solid #E5E7EB' }}
+                  >
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
+                    >
+                      {member.initials}
+                    </div>
+                    <p className="text-xs font-medium text-[#111827] flex-1 truncate">
+                      {member.full_name.split(' ')[0]}
+                    </p>
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: submittedEmails.includes(member.email) ? '#0A7E5A' : '#D1D5DB' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
