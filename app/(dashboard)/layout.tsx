@@ -110,6 +110,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-xs font-semibold text-[#111827] truncate">{userName}</p>
                 <p className="text-xs text-[#6B7280] truncate">{userEmail}</p>
               </div>
+              <Link
+                href="/profile"
+                onClick={() => setShowMenu(false)}
+                className="w-full text-left px-4 py-2 text-sm text-[#374151] hover:bg-[#F9FAFB] transition-colors block"
+              >
+                My Profile
+              </Link>
               <button
                 onClick={handleLogout}
                 className="w-full text-left px-4 py-2 text-sm text-[#374151] hover:bg-[#F9FAFB] transition-colors"
