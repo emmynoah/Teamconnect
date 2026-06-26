@@ -16,6 +16,26 @@ export async function POST(req: NextRequest) {
   try {
     const { content, visibility, recipientEmail, senderEmail, senderName, senderInitials, isLeaderMessage } = await req.json()
 
+    // Pre-check: verify the messages table exists and is accessible
+    const { error: tableCheckError } = await supabase
+      .from('messages')
+      .select('id')
+      .limit(1)
+
+    if (tableCheckError) {
+      console.error('[messages/send] table check failed:', JSON.stringify({
+        message: tableCheckError.message,
+        code: tableCheckError.code,
+        details: tableCheckError.details,
+        hint: tableCheckError.hint,
+      }))
+      return NextResponse.json({
+        error: 'table not found or inaccessible',
+        details: tableCheckError.message,
+        code: tableCheckError.code,
+      }, { status: 500 })
+    }
+
     const { data: message, error: dbError } = await supabase
       .from('messages')
       .insert({
@@ -31,8 +51,18 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (dbError) {
-      console.error('[messages/send] db error:', JSON.stringify(dbError))
-      return NextResponse.json({ error: dbError.message, code: dbError.code }, { status: 500 })
+      console.error('[messages/send] insert failed:', JSON.stringify({
+        message: dbError.message,
+        code: dbError.code,
+        details: dbError.details,
+        hint: dbError.hint,
+      }))
+      return NextResponse.json({
+        error: dbError.message,
+        code: dbError.code,
+        details: dbError.details,
+        hint: dbError.hint,
+      }, { status: 500 })
     }
 
     const today = new Date().toLocaleDateString('en-GB', {
