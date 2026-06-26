@@ -167,7 +167,7 @@ export default function DashboardPage() {
       {/* Team Report Status */}
       <div>
         <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
-          Today's report status
+          Today&apos;s report status
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {CARSA_TEAM.map(member => (
