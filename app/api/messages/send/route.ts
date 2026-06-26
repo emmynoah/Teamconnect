@@ -1,44 +1,28 @@
 import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { CARSA_TEAM } from '@/lib/team'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
-const CARSA_ORG_ID = process.env.CARSA_ORG_ID!
-void CARSA_ORG_ID
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const restHeaders = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+  'apikey': SERVICE_ROLE_KEY,
+  'Prefer': 'return=representation',
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { content, visibility, recipientEmail, senderEmail, senderName, senderInitials, isLeaderMessage } = await req.json()
 
-    // Pre-check: verify the messages table exists and is accessible
-    const { error: tableCheckError } = await supabase
-      .from('messages')
-      .select('id')
-      .limit(1)
-
-    if (tableCheckError) {
-      console.error('[messages/send] table check failed:', JSON.stringify({
-        message: tableCheckError.message,
-        code: tableCheckError.code,
-        details: tableCheckError.details,
-        hint: tableCheckError.hint,
-      }))
-      return NextResponse.json({
-        error: 'table not found or inaccessible',
-        details: tableCheckError.message,
-        code: tableCheckError.code,
-      }, { status: 500 })
-    }
-
-    const { data: message, error: dbError } = await supabase
-      .from('messages')
-      .insert({
+    // Insert via direct REST API — bypasses PostgREST schema cache issue (PGRST205)
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
+      method: 'POST',
+      headers: restHeaders,
+      body: JSON.stringify({
         sender_email: senderEmail,
         sender_name: senderName,
         sender_initials: senderInitials,
@@ -46,24 +30,17 @@ export async function POST(req: NextRequest) {
         visibility,
         recipient_email: recipientEmail || null,
         is_leader_message: isLeaderMessage || false,
-      })
-      .select()
-      .single()
+      }),
+    })
 
-    if (dbError) {
-      console.error('[messages/send] insert failed:', JSON.stringify({
-        message: dbError.message,
-        code: dbError.code,
-        details: dbError.details,
-        hint: dbError.hint,
-      }))
-      return NextResponse.json({
-        error: dbError.message,
-        code: dbError.code,
-        details: dbError.details,
-        hint: dbError.hint,
-      }, { status: 500 })
+    if (!insertRes.ok) {
+      const insertErr = await insertRes.json()
+      console.error('[messages/send] insert failed:', JSON.stringify(insertErr))
+      return NextResponse.json({ error: insertErr.message, details: insertErr }, { status: 500 })
     }
+
+    const rows: unknown[] = await insertRes.json()
+    const message = rows[0]
 
     const today = new Date().toLocaleDateString('en-GB', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
