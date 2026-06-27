@@ -72,13 +72,20 @@ export async function GET(request: Request) {
         max_tokens: 500,
         messages: [{
           role: 'user',
-          content: `You are an executive assistant summarizing daily staff reports for Christophe Mbonyingabo, Executive Director of CARSA NGO in Rwanda. Based on today's reports below, write a concise 3-5 sentence executive summary highlighting: overall team progress, key accomplishments, main challenges, and what to watch tomorrow. Write in a professional tone directly addressing Christophe. Do not list each person individually — synthesize across the team.\n\n${reportText}`
+          content: `You are preparing a daily briefing for Christophe Mbonyingabo, Executive Director of CARSA NGO in Rwanda. Based on the staff reports below, write a short 3 to 5 sentence briefing in plain conversational prose. No bullet points, no bold text, no headers, no markdown of any kind. Write as if you are a trusted assistant speaking directly to Christophe. Mention the most important accomplishments, any challenges worth his attention, and what the team plans to do tomorrow. Keep it warm, clear and professional.\n\n${reportText}`
         }]
       })
     })
 
     const aiData = await aiResponse.json()
     const summary = aiData.content?.[0]?.text?.trim() || 'Summary unavailable.'
+    const cleanSummary = summary
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/---/g, '')
+      .replace(/\n\n/g, ' ')
+      .replace(/\n/g, ' ')
+      .trim()
 
     const reportCards = reports.map((r: ReportWithProfile) => {
       const name = r.profiles?.full_name || 'Unknown'
@@ -128,7 +135,7 @@ export async function GET(request: Request) {
 
           <div style="background: #E8F5F0; border-left: 4px solid #0A7E5A; padding: 16px; border-radius: 4px; margin-bottom: 32px;">
             <p style="margin: 0 0 8px; font-size: 11px; font-weight: bold; color: #0A7E5A;">REPORT SUMMARY</p>
-            <p style="margin: 0; font-size: 14px; color: #111827; line-height: 1.7;">${summary}</p>
+            <p style="margin: 0; font-size: 14px; color: #111827; line-height: 1.7;">${cleanSummary}</p>
           </div>
 
           <p style="font-size: 13px; font-weight: bold; color: #111827; margin: 0 0 20px; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px;">Individual Reports (${submittedCount} of 8)</p>
@@ -148,7 +155,7 @@ export async function GET(request: Request) {
       html,
     })
 
-    return NextResponse.json({ success: true, reports: submittedCount, summary })
+    return NextResponse.json({ success: true, reports: submittedCount, summary: cleanSummary })
   } catch (error) {
     console.error('Daily summary error:', error)
     return NextResponse.json({ error: 'Failed to send summary' }, { status: 500 })
