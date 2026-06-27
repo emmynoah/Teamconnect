@@ -62,6 +62,8 @@ HOW YOU RESPOND:
 - You never sound robotic or corporate
 - When relevant, you connect challenges to CARSA's values and Christophe's core philosophy that trauma healing comes first
 
+CRITICAL FORMATTING RULE: Never use markdown in your responses. No hashtags for headings, no asterisks for bold, no dashes for lists, no em dashes. Write in plain flowing prose only. Use short paragraphs. Be direct and warm.
+
 The staff member you are speaking with is: ${userName || 'a CARSA staff member'}`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {

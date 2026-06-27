@@ -122,6 +122,16 @@ export default function ThinkingPartnerPage() {
     'How do I handle conflict in a group session?',
   ]
 
+  const cleanMarkdown = (text: string) => {
+    return text
+      .replace(/#{1,6}\s+/g, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/---/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+
   return (
     <div className="flex h-[calc(100vh-64px)] -mx-6 -my-8 overflow-hidden">
 
@@ -229,7 +239,7 @@ export default function ThinkingPartnerPage() {
                   : { backgroundColor: '#0A7E5A', borderRadius: '12px 2px 12px 12px', color: 'white' }
                 }
               >
-                {msg.content}
+                {msg.role === 'assistant' ? cleanMarkdown(msg.content) : msg.content}
               </div>
             </div>
           ))}
