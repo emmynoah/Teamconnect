@@ -93,13 +93,13 @@ export default function LeavePage() {
         .eq('id', user.id)
         .single()
       if (profile) setOrgId(profile.org_id)
-      fetchRequests(user.id, user.email || '')
+      fetchRequests(user.id)
     }
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const fetchRequests = async (uid: string, email: string) => {
+  const fetchRequests = async (uid: string) => {
     const { data: mine } = await supabase
       .from('leave_requests')
       .select('*')
@@ -161,7 +161,7 @@ export default function LeavePage() {
     setHandoverPerson('')
     setContact('')
     setReason('')
-    fetchRequests(userId, userEmail)
+    fetchRequests(userId)
   }
 
   const handleApproval = async (requestId: string, stage: 'first' | 'final', decision: 'Approved' | 'Rejected', comment: string) => {
@@ -176,7 +176,7 @@ export default function LeavePage() {
       updates.status = decision === 'Approved' ? 'Approved' : 'Rejected'
     }
     await supabase.from('leave_requests').update(updates).eq('id', requestId)
-    fetchRequests(userId, userEmail)
+    fetchRequests(userId)
   }
 
   const todayOnLeave = allRequests.filter(r => {
