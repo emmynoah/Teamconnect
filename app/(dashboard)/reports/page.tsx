@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CARSA_TEAM } from '@/lib/team'
 
+type Field = 'accomplishments' | 'lessons' | 'challenges' | 'tomorrowPlan'
+
 export default function ReportsPage() {
   const supabase = createClient()
   const [userName, setUserName] = useState('')
@@ -15,13 +17,11 @@ export default function ReportsPage() {
   const [tomorrowPlan, setTomorrowPlan] = useState('')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const [proofreadStatus, setProofreadStatus] = useState<'idle' | 'loading' | 'done'>('idle')
-  const [proofreadResult, setProofreadResult] = useState<{
-    accomplishments: string
-    lessons: string
-    challenges: string
-    tomorrowPlan: string
-  } | null>(null)
+
+  const [fieldSuggestions, setFieldSuggestions] = useState<Partial<Record<Field, string>>>({})
+  const [fieldLoading, setFieldLoading] = useState<Partial<Record<Field, boolean>>>({})
+  const [describeOpen, setDescribeOpen] = useState<Partial<Record<Field, boolean>>>({})
+  const [describeText, setDescribeText] = useState<Partial<Record<Field, string>>>({})
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -43,37 +43,44 @@ export default function ReportsPage() {
     init()
   }, [])
 
-  const handleProofread = async () => {
-    if (!accomplishments && !lessons && !challenges && !tomorrowPlan) {
-      setErrorMessage('Please fill in at least one field before proofreading.')
-      return
-    }
-    setProofreadStatus('loading')
+  const improveField = async (field: Field, instruction?: string) => {
+    const value = field === 'accomplishments' ? accomplishments
+      : field === 'lessons' ? lessons
+      : field === 'challenges' ? challenges
+      : tomorrowPlan
+    if (!value.trim()) return
+    setFieldLoading(prev => ({ ...prev, [field]: true }))
     try {
       const res = await fetch('/api/reports/proofread', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accomplishments, lessons, challenges, tomorrowPlan }),
+        body: JSON.stringify({ field, value, instruction }),
       })
       const data = await res.json()
       if (data.improved) {
-        setProofreadResult(data.improved)
-        setProofreadStatus('done')
+        setFieldSuggestions(prev => ({ ...prev, [field]: data.improved }))
       }
     } catch {
-      setProofreadStatus('idle')
-      setErrorMessage('Proofread failed. Please try again.')
+      // silent fail
+    } finally {
+      setFieldLoading(prev => ({ ...prev, [field]: false }))
     }
   }
 
-  const applyProofread = () => {
-    if (!proofreadResult) return
-    setAccomplishments(proofreadResult.accomplishments || accomplishments)
-    setLessons(proofreadResult.lessons || lessons)
-    setChallenges(proofreadResult.challenges || challenges)
-    setTomorrowPlan(proofreadResult.tomorrowPlan || tomorrowPlan)
-    setProofreadResult(null)
-    setProofreadStatus('idle')
+  const applyField = (field: Field) => {
+    const suggestion = fieldSuggestions[field]
+    if (!suggestion) return
+    if (field === 'accomplishments') setAccomplishments(suggestion)
+    if (field === 'lessons') setLessons(suggestion)
+    if (field === 'challenges') setChallenges(suggestion)
+    if (field === 'tomorrowPlan') setTomorrowPlan(suggestion)
+    setFieldSuggestions(prev => ({ ...prev, [field]: undefined }))
+    setDescribeOpen(prev => ({ ...prev, [field]: false }))
+  }
+
+  const dismissField = (field: Field) => {
+    setFieldSuggestions(prev => ({ ...prev, [field]: undefined }))
+    setDescribeOpen(prev => ({ ...prev, [field]: false }))
   }
 
   const handleSubmit = async () => {
@@ -104,6 +111,64 @@ export default function ReportsPage() {
       setErrorMessage('Something went wrong. Please try again.')
     }
   }
+
+  const renderAIWidget = (field: Field) => (
+    <>
+      {!fieldSuggestions[field] && (
+        <button
+          onClick={() => improveField(field)}
+          disabled={fieldLoading[field]}
+          className="mt-2 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors"
+          style={{ backgroundColor: fieldLoading[field] ? '#E5E7EB' : '#0A7E5A' }}
+        >
+          {fieldLoading[field] ? 'Improving...' : '✨ Improve with AI'}
+        </button>
+      )}
+      {fieldSuggestions[field] && (
+        <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid #0A7E5A' }}>
+          <div className="px-3 py-2" style={{ backgroundColor: '#0A7E5A' }}>
+            <span className="text-xs font-bold text-white">✨ AI Writing Assistant</span>
+          </div>
+          <div className="px-3 py-2 text-sm" style={{ backgroundColor: '#E8F5F0', color: '#111827', lineHeight: '1.6' }}>
+            {fieldSuggestions[field]}
+          </div>
+          <div className="flex gap-2 px-3 py-2 flex-wrap" style={{ backgroundColor: '#111827' }}>
+            <button onClick={() => applyField(field)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white" style={{ backgroundColor: '#0A7E5A' }}>
+              Use this version
+            </button>
+            <button onClick={() => dismissField(field)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ backgroundColor: '#ffffff', color: '#111827' }}>
+              Keep Original
+            </button>
+            <button
+              onClick={() => setDescribeOpen(prev => ({ ...prev, [field]: !prev[field] }))}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold"
+              style={{ backgroundColor: '#F48221', color: '#000000' }}
+            >
+              Describe what you want
+            </button>
+          </div>
+          {describeOpen[field] && (
+            <div className="flex gap-2 px-3 py-2" style={{ backgroundColor: '#1F2937' }}>
+              <input
+                value={describeText[field] || ''}
+                onChange={e => setDescribeText(prev => ({ ...prev, [field]: e.target.value }))}
+                placeholder="e.g. Make it shorter and more formal..."
+                className="flex-1 px-3 py-1.5 rounded-lg text-xs"
+                style={{ backgroundColor: '#374151', color: '#F9FAFB', border: '1px solid #4B5563' }}
+              />
+              <button
+                onClick={() => improveField(field, describeText[field])}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                style={{ backgroundColor: '#0A7E5A' }}
+              >
+                Rewrite
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div>
@@ -161,6 +226,7 @@ export default function ReportsPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none resize-none"
               style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
             />
+            {renderAIWidget('accomplishments')}
           </div>
 
           {/* Question 2 */}
@@ -177,6 +243,7 @@ export default function ReportsPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none resize-none"
               style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
             />
+            {renderAIWidget('lessons')}
           </div>
 
           {/* Question 3 */}
@@ -193,6 +260,7 @@ export default function ReportsPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none resize-none"
               style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
             />
+            {renderAIWidget('challenges')}
           </div>
 
           {/* Question 4 */}
@@ -209,38 +277,13 @@ export default function ReportsPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm text-[#374151] outline-none resize-none"
               style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
             />
+            {renderAIWidget('tomorrowPlan')}
           </div>
 
           {/* Error Message */}
           {errorMessage && (
             <p className="text-sm mb-4" style={{ color: '#F48221' }}>{errorMessage}</p>
           )}
-
-          {/* Proofread result */}
-          {proofreadStatus === 'done' && proofreadResult && (
-            <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: '#E8F5F0', border: '1px solid #0A7E5A' }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: '#0A7E5A' }}>✨ AI Proofread suggestion ready</p>
-              <button
-                onClick={applyProofread}
-                className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors"
-                style={{ backgroundColor: '#0A7E5A' }}
-              >
-                Use this version
-              </button>
-            </div>
-          )}
-
-          {/* Proofread + Submit Buttons */}
-          <div className="flex gap-3 mb-4">
-            <button
-              onClick={handleProofread}
-              disabled={proofreadStatus === 'loading'}
-              className="flex-1 py-3 rounded-lg text-sm font-bold text-white transition-colors duration-150"
-              style={{ backgroundColor: proofreadStatus === 'loading' ? '#E5E7EB' : '#0A7E5A' }}
-            >
-              {proofreadStatus === 'loading' ? 'Proofreading...' : 'Proofread with AI'}
-            </button>
-          </div>
 
           {/* Submit Button */}
           <button
