@@ -15,6 +15,13 @@ export default function ReportsPage() {
   const [tomorrowPlan, setTomorrowPlan] = useState('')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [proofreadStatus, setProofreadStatus] = useState<'idle' | 'loading' | 'done'>('idle')
+  const [proofreadResult, setProofreadResult] = useState<{
+    accomplishments: string
+    lessons: string
+    challenges: string
+    tomorrowPlan: string
+  } | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -35,6 +42,39 @@ export default function ReportsPage() {
     }
     init()
   }, [])
+
+  const handleProofread = async () => {
+    if (!accomplishments && !lessons && !challenges && !tomorrowPlan) {
+      setErrorMessage('Please fill in at least one field before proofreading.')
+      return
+    }
+    setProofreadStatus('loading')
+    try {
+      const res = await fetch('/api/reports/proofread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accomplishments, lessons, challenges, tomorrowPlan }),
+      })
+      const data = await res.json()
+      if (data.improved) {
+        setProofreadResult(data.improved)
+        setProofreadStatus('done')
+      }
+    } catch {
+      setProofreadStatus('idle')
+      setErrorMessage('Proofread failed. Please try again.')
+    }
+  }
+
+  const applyProofread = () => {
+    if (!proofreadResult) return
+    setAccomplishments(proofreadResult.accomplishments || accomplishments)
+    setLessons(proofreadResult.lessons || lessons)
+    setChallenges(proofreadResult.challenges || challenges)
+    setTomorrowPlan(proofreadResult.tomorrowPlan || tomorrowPlan)
+    setProofreadResult(null)
+    setProofreadStatus('idle')
+  }
 
   const handleSubmit = async () => {
     if (!accomplishments || !lessons || !challenges || !tomorrowPlan) {
@@ -175,6 +215,32 @@ export default function ReportsPage() {
           {errorMessage && (
             <p className="text-sm mb-4" style={{ color: '#F48221' }}>{errorMessage}</p>
           )}
+
+          {/* Proofread result */}
+          {proofreadStatus === 'done' && proofreadResult && (
+            <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: '#E8F5F0', border: '1px solid #0A7E5A' }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: '#0A7E5A' }}>✨ AI Proofread suggestion ready</p>
+              <button
+                onClick={applyProofread}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-colors"
+                style={{ backgroundColor: '#0A7E5A' }}
+              >
+                Use this version
+              </button>
+            </div>
+          )}
+
+          {/* Proofread + Submit Buttons */}
+          <div className="flex gap-3 mb-4">
+            <button
+              onClick={handleProofread}
+              disabled={proofreadStatus === 'loading'}
+              className="flex-1 py-3 rounded-lg text-sm font-bold text-white transition-colors duration-150"
+              style={{ backgroundColor: proofreadStatus === 'loading' ? '#E5E7EB' : '#0A7E5A' }}
+            >
+              {proofreadStatus === 'loading' ? 'Proofreading...' : 'Proofread with AI'}
+            </button>
+          </div>
 
           {/* Submit Button */}
           <button
