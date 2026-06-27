@@ -129,6 +129,7 @@ export default function ThinkingPartnerPage() {
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/---/g, '')
       .replace(/\n{3,}/g, '\n\n')
+      .replace(/\n(?!\n)/g, ' ')
       .trim()
   }
 
@@ -239,7 +240,13 @@ export default function ThinkingPartnerPage() {
                   : { backgroundColor: '#0A7E5A', borderRadius: '12px 2px 12px 12px', color: 'white' }
                 }
               >
-                {msg.role === 'assistant' ? cleanMarkdown(msg.content) : msg.content}
+                {msg.role === 'assistant'
+                  ? cleanMarkdown(msg.content).split('\n\n').map((paragraph, i) => (
+                      <p key={i} style={{ marginBottom: i < cleanMarkdown(msg.content).split('\n\n').length - 1 ? '12px' : '0' }}>
+                        {paragraph}
+                      </p>
+                    ))
+                  : msg.content}
               </div>
             </div>
           ))}
