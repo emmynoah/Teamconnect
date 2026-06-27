@@ -157,7 +157,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full text-sm font-semibold shadow-lg transition-colors"
           style={{ backgroundColor: '#0A7E5A', color: 'white' }}
         >
-          <span style={{ fontSize: '16px' }}>✦</span>
+          <span
+            className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0"
+            style={{ backgroundColor: '#F48221', color: 'black' }}
+          >
+            ✦
+          </span>
           Ask Thinking Partner
         </Link>
       )}
