@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL!,
-        to: member.email,
+        to: 'emmanuel.n@carsaministry.org',
         subject: `Good morning, ${firstName}. It is a new day.`,
         html,
       })

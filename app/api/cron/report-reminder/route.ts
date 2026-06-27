@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL!,
-        to: member.email,
+        to: 'emmanuel.n@carsaministry.org',
         subject: `Time to submit your daily report — ${today}`,
         html,
       })
