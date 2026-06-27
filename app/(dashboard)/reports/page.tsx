@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CARSA_TEAM } from '@/lib/team'
 
@@ -8,6 +9,7 @@ type Field = 'accomplishments' | 'lessons' | 'challenges' | 'tomorrowPlan'
 
 export default function ReportsPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [userName, setUserName] = useState('')
   const [userTitle, setUserTitle] = useState('')
   const [userEmail, setUserEmail] = useState('')
@@ -30,6 +32,10 @@ export default function ReportsPage() {
       if (!user) return
 
       setUserEmail(user.email || '')
+      if (user.email === 'christophe.m@carsaministry.org') {
+        router.push('/leader')
+        return
+      }
       const match = CARSA_TEAM.find(m => m.email === user.email)
       if (match) {
         setUserName(match.full_name)
