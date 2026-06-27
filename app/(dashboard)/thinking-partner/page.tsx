@@ -22,6 +22,7 @@ export default function ThinkingPartnerPage() {
   const [userInitials, setUserInitials] = useState('')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(true)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -38,16 +39,66 @@ export default function ThinkingPartnerPage() {
         setUserName(match.full_name.split(' ')[0])
         setUserInitials(match.initials)
       }
+
+      const { data: convos } = await supabase
+        .from('thinking_partner_conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+
+      if (convos && convos.length > 0) {
+        const loaded = convos.map((c: { id: string; title: string; messages: Message[]; created_at: string }) => ({
+          id: c.id,
+          title: c.title,
+          messages: c.messages,
+          createdAt: c.created_at,
+        }))
+        setConversations(loaded)
+        setActiveId(loaded[0].id)
+      }
+      setLoadingHistory(false)
     }
     init()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const startNewConversation = () => {
-    const id = Date.now().toString()
+  const saveConversation = async (conv: Conversation) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const existing = await supabase
+      .from('thinking_partner_conversations')
+      .select('id')
+      .eq('id', conv.id)
+      .single()
+
+    if (existing.data) {
+      await supabase
+        .from('thinking_partner_conversations')
+        .update({
+          messages: conv.messages,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', conv.id)
+    } else {
+      await supabase
+        .from('thinking_partner_conversations')
+        .insert({
+          id: conv.id,
+          user_id: user.id,
+          title: conv.title,
+          messages: conv.messages,
+        })
+    }
+  }
+
+  const startNewConversation = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const id = crypto.randomUUID()
     const newConv: Conversation = {
       id,
       title: 'New conversation',
@@ -63,7 +114,7 @@ export default function ThinkingPartnerPage() {
 
     let currentId = activeId
     if (!currentId) {
-      const id = Date.now().toString()
+      const id = crypto.randomUUID()
       const newConv: Conversation = {
         id,
         title: input.slice(0, 40),
@@ -95,11 +146,21 @@ export default function ThinkingPartnerPage() {
       const data = await res.json()
       if (data.reply) {
         const assistantMessage: Message = { role: 'assistant', content: data.reply }
+        const finalMessages = [...updatedMessages, assistantMessage]
         setConversations(prev => prev.map(c =>
           c.id === currentId
-            ? { ...c, messages: [...updatedMessages, assistantMessage] }
+            ? { ...c, messages: finalMessages }
             : c
         ))
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          saveConversation({
+            id: currentId!,
+            title: userMessage.content.slice(0, 40),
+            messages: finalMessages,
+            createdAt: new Date().toISOString(),
+          })
+        }
       }
     } catch {
       // silent fail
