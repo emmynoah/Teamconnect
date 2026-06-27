@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userName, setUserName] = useState('')
   const [userInitials, setUserInitials] = useState('')
   const [showMenu, setShowMenu] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -26,6 +27,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
 
       setUserEmail(user.email || '')
+
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('read', false)
+      setUnreadCount(notifs?.length || 0)
 
       const match = CARSA_TEAM.find(m => m.email === user.email)
       if (match) {
@@ -82,7 +90,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 backgroundColor: pathname === link.href ? '#1F2937' : 'transparent',
               }}
             >
-              {link.label}
+              <>
+                {link.label}
+                {link.href === '/' && unreadCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: '#F48221' }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </>
             </Link>
           ))}
         </div>
