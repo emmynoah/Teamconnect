@@ -313,45 +313,44 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {teamMessages.map(msg => (
-                  <div
-                    key={msg.id}
-                    className="bg-white rounded-xl p-5"
-                    style={{
-                      border: '1px solid #E5E7EB',
-                      borderLeft: `4px solid ${msg.is_leader_message ? '#111827' : '#0A7E5A'}`,
-                    }}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: msg.is_leader_message ? '#111827' : '#E8F5F0',
-                          color: msg.is_leader_message ? 'white' : '#0A7E5A',
-                        }}
-                      >
-                        {msg.sender_initials}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-[#111827]">{msg.sender_name}</p>
-                          {msg.is_leader_message && (
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-medium"
-                              style={{ backgroundColor: '#111827', color: 'white' }}
-                            >
-                              Executive Director
-                            </span>
-                          )}
+                {teamMessages.map(msg => {
+                  const isChristophe =
+                    msg.sender_email === 'christophe.m@carsaministry.org' ||
+                    msg.sender_name === 'Christophe Mbonyingabo'
+                  return (
+                    <div
+                      key={msg.id}
+                      className="rounded-xl"
+                      style={isChristophe
+                        ? { background: '#F0FAF6', borderLeft: '3px solid #0A7E5A', borderRadius: 8, padding: 12 }
+                        : { background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: 20 }
+                      }
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
+                        >
+                          {msg.sender_initials}
                         </div>
-                        <p className="text-xs text-[#6B7280]">
-                          {formatDate(msg.created_at)} at {formatTime(msg.created_at)}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-[#111827]">{msg.sender_name}</p>
+                            {isChristophe && (
+                              <span style={{ backgroundColor: '#0A7E5A', color: 'white', fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 600 }}>
+                                Leader
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-[#6B7280]">
+                            {formatDate(msg.created_at)} at {formatTime(msg.created_at)}
+                          </p>
+                        </div>
                       </div>
+                      <p className="text-sm text-[#374151] leading-relaxed">{msg.content}</p>
                     </div>
-                    <p className="text-sm text-[#374151] leading-relaxed">{msg.content}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
