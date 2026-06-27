@@ -218,10 +218,13 @@ export default function ThinkingPartnerPage() {
         </button>
 
         <div className="flex-1 overflow-y-auto px-2 pb-2">
-          {conversations.length > 0 && (
+          {loadingHistory && (
+            <p className="text-xs text-[#9CA3AF] px-2 py-1">Loading...</p>
+          )}
+          {!loadingHistory && conversations.length > 0 && (
             <p className="text-[10px] text-[#9CA3AF] px-2 py-1 uppercase tracking-wider">Recent</p>
           )}
-          {conversations.map(conv => (
+          {!loadingHistory && conversations.map(conv => (
             <button
               key={conv.id}
               onClick={() => setActiveId(conv.id)}
