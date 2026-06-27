@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { CARSA_TEAM } from '@/lib/team'
+import Link from 'next/link'
 
 export default function DirectoryPage() {
   const [search, setSearch] = useState('')
@@ -94,8 +95,8 @@ export default function DirectoryPage() {
       {view === 'grid' && filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map(member => (
+            <Link href={`/profile/${encodeURIComponent(member.email)}`} key={member.initials} className="block">
             <div
-              key={member.initials}
               className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-150 p-5 flex flex-col gap-4"
               style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
             >
@@ -142,6 +143,7 @@ export default function DirectoryPage() {
                   href={member.phone ? `https://wa.me/${member.phone}` : '#'}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors duration-150"
                   style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', color: '#374151' }}
                 >
@@ -152,6 +154,7 @@ export default function DirectoryPage() {
                 </a>
                 <a
                   href={member.email ? `mailto:${member.email}` : '#'}
+                  onClick={(e) => e.stopPropagation()}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors duration-150"
                   style={{ backgroundColor: '#F48221', color: '#000000' }}
                 >
@@ -162,6 +165,7 @@ export default function DirectoryPage() {
                 </a>
               </div>
             </div>
+            </Link>
           ))}
         </div>
       )}
@@ -170,64 +174,67 @@ export default function DirectoryPage() {
       {view === 'list' && filtered.length > 0 && (
         <div className="flex flex-col gap-2">
           {filtered.map(member => (
-            <div
-              key={member.initials}
-              className="bg-white rounded-xl p-4 flex items-center gap-4"
-              style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
-            >
+            <Link href={`/profile/${encodeURIComponent(member.email)}`} key={member.initials} className="block">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#E8F5F0' }}
+                className="bg-white rounded-xl p-4 flex items-center gap-4"
+                style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
               >
-                <span className="font-bold text-sm" style={{ color: '#0A7E5A' }}>
-                  {member.initials}
-                </span>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-sm" style={{ color: '#111827' }}>
-                    {member.full_name}
-                  </p>
-                  {member.email === 'christophe.m@carsaministry.org' && (
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded"
-                      style={{ backgroundColor: '#0A7E5A', color: 'white' }}
-                    >
-                      Leader
-                    </span>
-                  )}
-                  {member.email === 'emmanuel.n@carsaministry.org' && (
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded"
-                      style={{ backgroundColor: '#F48221', color: 'black' }}
-                    >
-                      Admin
-                    </span>
-                  )}
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#E8F5F0' }}
+                >
+                  <span className="font-bold text-sm" style={{ color: '#0A7E5A' }}>
+                    {member.initials}
+                  </span>
                 </div>
-                <p className="text-xs" style={{ color: '#6B7280' }}>{member.title}</p>
-              </div>
 
-              <div className="flex gap-2 flex-shrink-0">
-                <a
-                  href={member.phone ? `https://wa.me/${member.phone}` : '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-150"
-                  style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', color: '#374151' }}
-                >
-                  WhatsApp
-                </a>
-                <a
-                  href={member.email ? `mailto:${member.email}` : '#'}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-150"
-                  style={{ backgroundColor: '#F48221', color: '#000000' }}
-                >
-                  Email
-                </a>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-sm" style={{ color: '#111827' }}>
+                      {member.full_name}
+                    </p>
+                    {member.email === 'christophe.m@carsaministry.org' && (
+                      <span
+                        className="text-xs font-semibold px-2 py-0.5 rounded"
+                        style={{ backgroundColor: '#0A7E5A', color: 'white' }}
+                      >
+                        Leader
+                      </span>
+                    )}
+                    {member.email === 'emmanuel.n@carsaministry.org' && (
+                      <span
+                        className="text-xs font-semibold px-2 py-0.5 rounded"
+                        style={{ backgroundColor: '#F48221', color: 'black' }}
+                      >
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs" style={{ color: '#6B7280' }}>{member.title}</p>
+                </div>
+
+                <div className="flex gap-2 flex-shrink-0">
+                  <a
+                    href={member.phone ? `https://wa.me/${member.phone}` : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-150"
+                    style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', color: '#374151' }}
+                  >
+                    WhatsApp
+                  </a>
+                  <a
+                    href={member.email ? `mailto:${member.email}` : '#'}
+                    onClick={(e) => e.stopPropagation()}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-150"
+                    style={{ backgroundColor: '#F48221', color: '#000000' }}
+                  >
+                    Email
+                  </a>
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
