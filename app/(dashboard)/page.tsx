@@ -420,7 +420,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Report Status — leader/admin only */}
-          {showStats && (
+          {(isLeader || userEmail === 'emmanuel.n@carsaministry.org') && (
             <div>
               <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-3">
                 Today&apos;s report status
