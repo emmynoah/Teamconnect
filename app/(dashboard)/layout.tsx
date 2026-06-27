@@ -150,6 +150,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="max-w-7xl mx-auto px-6 py-8">
         {children}
       </main>
+
+      {pathname !== '/thinking-partner' && (
+        <Link
+          href="/thinking-partner"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full text-sm font-semibold shadow-lg transition-colors"
+          style={{ backgroundColor: '#0A7E5A', color: 'white' }}
+        >
+          <span style={{ fontSize: '16px' }}>✦</span>
+          Ask Thinking Partner
+        </Link>
+      )}
     </div>
   )
 }
