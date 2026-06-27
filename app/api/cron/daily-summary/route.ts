@@ -2,6 +2,19 @@ import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+type ReportWithProfile = {
+  user_id: string
+  accomplishments: string
+  lessons: string
+  challenges: string
+  tomorrow_plan: string
+  submitted_at: string
+  profiles: {
+    full_name: string
+    title: string
+  } | null
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,11 +30,13 @@ export async function GET(request: Request) {
   try {
     const today = new Date().toISOString().slice(0, 10)
 
-    const { data: reports, error } = await supabaseAdmin
+    const { data: rawReports, error } = await supabaseAdmin
       .from('daily_reports')
       .select('user_id, accomplishments, lessons, challenges, tomorrow_plan, submitted_at, profiles(full_name, title)')
       .eq('date', today)
       .order('submitted_at', { ascending: true })
+
+    const reports = rawReports as ReportWithProfile[] | null
 
     if (error) {
       console.error('Failed to fetch reports:', error)
@@ -36,8 +51,8 @@ export async function GET(request: Request) {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     })
 
-    const reportText = reports.map((r: any) => {
-      const name = (r.profiles as any)?.full_name || 'Unknown'
+    const reportText = reports.map((r: ReportWithProfile) => {
+      const name = r.profiles?.full_name || 'Unknown'
       return `${name}:
 - Accomplishments: ${r.accomplishments}
 - Lesson: ${r.lessons}
@@ -65,9 +80,9 @@ export async function GET(request: Request) {
     const aiData = await aiResponse.json()
     const summary = aiData.content?.[0]?.text?.trim() || 'Summary unavailable.'
 
-    const reportCards = reports.map((r: any) => {
-      const name = (r.profiles as any)?.full_name || 'Unknown'
-      const title = (r.profiles as any)?.title || ''
+    const reportCards = reports.map((r: ReportWithProfile) => {
+      const name = r.profiles?.full_name || 'Unknown'
+      const title = r.profiles?.title || ''
       const time = new Date(r.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
       return `
         <div style="border-left: 4px solid #0A7E5A; padding-left: 16px; margin-bottom: 24px;">
