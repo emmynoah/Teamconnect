@@ -119,10 +119,18 @@ export default function DirectoryPage() {
               </div>
 
               <div>
-                {member.role === 'admin' && (
+                {member.email === 'christophe.m@carsaministry.org' && (
                   <span
-                    className="inline-block text-white text-xs font-medium px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: '#111827' }}
+                    className="inline-block text-xs font-semibold px-2.5 py-1 rounded"
+                    style={{ backgroundColor: '#0A7E5A', color: 'white' }}
+                  >
+                    Leader
+                  </span>
+                )}
+                {member.email === 'emmanuel.n@carsaministry.org' && (
+                  <span
+                    className="inline-block text-xs font-semibold px-2.5 py-1 rounded"
+                    style={{ backgroundColor: '#F48221', color: 'black' }}
                   >
                     Admin
                   </span>
@@ -181,10 +189,18 @@ export default function DirectoryPage() {
                   <p className="font-semibold text-sm" style={{ color: '#111827' }}>
                     {member.full_name}
                   </p>
-                  {member.role === 'admin' && (
+                  {member.email === 'christophe.m@carsaministry.org' && (
                     <span
-                      className="text-white text-xs font-medium px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: '#111827' }}
+                      className="text-xs font-semibold px-2 py-0.5 rounded"
+                      style={{ backgroundColor: '#0A7E5A', color: 'white' }}
+                    >
+                      Leader
+                    </span>
+                  )}
+                  {member.email === 'emmanuel.n@carsaministry.org' && (
+                    <span
+                      className="text-xs font-semibold px-2 py-0.5 rounded"
+                      style={{ backgroundColor: '#F48221', color: 'black' }}
                     >
                       Admin
                     </span>
