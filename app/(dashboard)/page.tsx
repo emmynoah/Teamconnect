@@ -16,6 +16,7 @@ interface Message {
   created_at: string
 }
 
+// Dashboard
 export default function DashboardPage() {
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
