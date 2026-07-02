@@ -247,6 +247,12 @@ export default function DashboardPage() {
     return msg.sender_email === userEmail ? msg.recipient_email : msg.sender_email
   }
 
+  // Canonical thread key — sorts both participants so either direction of a
+  // conversation (A→B or B→A) maps to the same thread.
+  const getThreadKey = (msg: Message) => {
+    return [msg.sender_email, msg.recipient_email || ''].sort().join('__')
+  }
+
   const getConversationPartnerName = (msg: Message) => {
     const partnerEmail = msg.sender_email === userEmail ? msg.recipient_email : msg.sender_email
     const match = CARSA_TEAM.find(m => m.email === partnerEmail)
@@ -255,9 +261,9 @@ export default function DashboardPage() {
   }
 
   const conversations = privateMessages.reduce((acc: Record<string, Message[]>, msg) => {
-    const partner = getConversationPartner(msg) || 'unknown'
-    if (!acc[partner]) acc[partner] = []
-    acc[partner].push(msg)
+    const key = getThreadKey(msg)
+    if (!acc[key]) acc[key] = []
+    acc[key].push(msg)
     return acc
   }, {})
 
@@ -544,12 +550,13 @@ export default function DashboardPage() {
                 Private Messages
               </p>
               <div className="flex flex-col gap-4">
-                {Object.entries(conversations).map(([partnerEmail, msgs]) => {
+                {Object.entries(conversations).map(([threadKey, msgs]) => {
+                  const partnerEmail = getConversationPartner(msgs[0]) || ''
                   const partnerName = getConversationPartnerName(msgs[0])
                   const partnerInitials = msgs.find(m => m.sender_email !== userEmail)?.sender_initials || partnerEmail.slice(0, 2).toUpperCase()
                   const partnerPhoto = msgs.find(m => m.sender_email !== userEmail)?.sender_photo
                   return (
-                    <div key={partnerEmail} className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+                    <div key={threadKey} className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
                       {/* Conversation header */}
                       <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
                         {partnerPhoto ? (

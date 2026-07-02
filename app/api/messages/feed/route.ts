@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         { headers: restHeaders }
       ),
       fetch(
-        `${SUPABASE_URL}/rest/v1/messages?visibility=eq.private&or=(recipient_email.eq.${encodeURIComponent(userEmail)},sender_email.eq.${encodeURIComponent(userEmail)})&order=created_at.desc&limit=20`,
+        `${SUPABASE_URL}/rest/v1/messages?visibility=eq.private&or=(recipient_email.eq.${encodeURIComponent(userEmail)},sender_email.eq.${encodeURIComponent(userEmail)})&order=created_at.desc&limit=500`,
         { headers: restHeaders }
       ),
     ])
