@@ -254,7 +254,7 @@ export default function DashboardPage() {
                 className="rounded-lg p-4 mb-3"
                 style={{ backgroundColor: '#E8F5F0', border: '1px solid #0A7E5A' }}
               >
-                <p className="text-xs font-semibold text-[#0A7E5A] mb-2">✅ AI suggestion:</p>
+                <p className="text-xs font-semibold text-[#0A7E5A] mb-2">Suggestion</p>
                 <p className="text-sm text-[#374151] leading-relaxed">{proofread}</p>
                 <button
                   onClick={() => { setMessage(proofread); setProofread('') }}

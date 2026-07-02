@@ -14,9 +14,10 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
+        system: 'You are a professional writing assistant for CARSA, a reconciliation NGO in Rwanda. Improve the grammar, clarity, and professionalism of this message while keeping the author\'s meaning intact. Make it sound like a confident, clear institutional communication. Remove casual language, slang, and emojis. Return only the improved text with no explanation, no quotes, no markdown.',
         messages: [{
           role: 'user',
-          content: `You are a professional communication assistant for CARSA, an NGO in Rwanda. A staff member has written this internal team message. Improve it to be clear, professional, and warm — keeping the same meaning and their authentic voice. Return only the improved message with no explanation, no preamble, no quotation marks.\n\nOriginal message:\n${message}`,
+          content: message,
         }],
       }),
     })
