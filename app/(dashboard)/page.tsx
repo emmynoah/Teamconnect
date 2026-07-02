@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { CARSA_TEAM } from '@/lib/team'
 
@@ -13,6 +14,16 @@ interface Message {
   visibility: 'team' | 'private'
   recipient_email: string | null
   is_leader_message: boolean
+  created_at: string
+}
+
+type Comment = {
+  id: string
+  message_id: string
+  sender_email: string
+  sender_name: string
+  sender_initials: string
+  content: string
   created_at: string
 }
 
@@ -30,6 +41,9 @@ export default function DashboardPage() {
   const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [teamMessages, setTeamMessages] = useState<Message[]>([])
   const [privateMessages, setPrivateMessages] = useState<Message[]>([])
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
+  const [commentLoading, setCommentLoading] = useState<Record<string, boolean>>({})
   const [upcomingCount, setUpcomingCount] = useState(0)
   const [submittedCount, setSubmittedCount] = useState(0)
   const [submittedEmails, setSubmittedEmails] = useState<string[]>([])
@@ -45,6 +59,23 @@ export default function DashboardPage() {
   const hour = today.getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const todayStr = today.toISOString().split('T')[0]
+
+  const fetchComments = async (messageIds: string[]) => {
+    if (messageIds.length === 0) return
+    const { data } = await supabase
+      .from('message_comments')
+      .select('*')
+      .in('message_id', messageIds)
+      .order('created_at', { ascending: true })
+    if (data) {
+      const grouped: Record<string, Comment[]> = {}
+      data.forEach((c: Comment) => {
+        if (!grouped[c.message_id]) grouped[c.message_id] = []
+        grouped[c.message_id].push(c)
+      })
+      setComments(grouped)
+    }
+  }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -98,6 +129,7 @@ export default function DashboardPage() {
       const data = await res.json()
       setTeamMessages(data.teamMessages || [])
       setPrivateMessages(data.privateMessages || [])
+      fetchComments((data.teamMessages || []).map((m: Message) => m.id))
 
       setLoading(false)
     }
@@ -160,6 +192,24 @@ export default function DashboardPage() {
     } catch {
       setSendStatus('error')
     }
+  }
+
+  const postComment = async (messageId: string) => {
+    const content = commentInputs[messageId]?.trim()
+    if (!content) return
+    setCommentLoading(prev => ({ ...prev, [messageId]: true }))
+    const { error } = await supabase.from('message_comments').insert({
+      message_id: messageId,
+      sender_email: userEmail,
+      sender_name: userName,
+      sender_initials: userInitials,
+      content,
+    })
+    if (!error) {
+      setCommentInputs(prev => ({ ...prev, [messageId]: '' }))
+      fetchComments([messageId])
+    }
+    setCommentLoading(prev => ({ ...prev, [messageId]: false }))
   }
 
   const formatTime = (dateStr: string) => {
@@ -335,7 +385,9 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-[#111827]">{msg.sender_name}</p>
+                            <Link href={`/profile/${encodeURIComponent(msg.sender_email)}`} className="text-sm font-semibold text-[#111827] hover:text-[#0A7E5A] transition-colors">
+                              {msg.sender_name}
+                            </Link>
                             {isChristophe && (
                               <span style={{ backgroundColor: '#0A7E5A', color: 'white', fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 600 }}>
                                 Leader
@@ -348,6 +400,52 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <p className="text-sm text-[#374151] leading-relaxed">{msg.content}</p>
+
+                      {/* Comments */}
+                      <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E5E7EB' }}>
+                        {(comments[msg.id] || []).map(comment => (
+                          <div key={comment.id} className="flex gap-2 mb-2">
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                              style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
+                            >
+                              {comment.sender_initials}
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-xs font-semibold text-[#111827]">{comment.sender_name}</span>
+                              <span className="text-xs text-[#6B7280] ml-2">{formatTime(comment.created_at)}</span>
+                              <p className="text-xs text-[#374151] mt-0.5 leading-relaxed">{comment.content}</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex gap-2 mt-2">
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                            style={{ backgroundColor: '#F48221', color: 'black' }}
+                          >
+                            {userInitials}
+                          </div>
+                          <div className="flex-1 flex gap-2">
+                            <input
+                              type="text"
+                              value={commentInputs[msg.id] || ''}
+                              onChange={e => setCommentInputs(prev => ({ ...prev, [msg.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter') postComment(msg.id) }}
+                              placeholder="Write a comment..."
+                              className="flex-1 px-3 py-1.5 rounded-lg text-xs text-[#374151] outline-none"
+                              style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
+                            />
+                            <button
+                              onClick={() => postComment(msg.id)}
+                              disabled={commentLoading[msg.id]}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                              style={{ backgroundColor: commentLoading[msg.id] ? '#E5E7EB' : '#0A7E5A' }}
+                            >
+                              Reply
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )
                 })}
