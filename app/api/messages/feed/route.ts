@@ -30,7 +30,28 @@ export async function GET(req: NextRequest) {
     const teamMessages = teamRes.ok ? await teamRes.json() : []
     const privateMessages = privateRes.ok ? await privateRes.json() : []
 
-    return NextResponse.json({ teamMessages, privateMessages })
+    // Get unique sender emails
+    const allMessages = [...teamMessages, ...privateMessages]
+    const senderEmails = Array.from(new Set(allMessages.map((m: {sender_email: string}) => m.sender_email)))
+
+    // Fetch current photos for all senders
+    const photoMap: Record<string, string> = {}
+    if (senderEmails.length > 0) {
+      const photosRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?email=in.(${senderEmails.map(e => `"${e}"`).join(',')})&select=email,photo_url`,
+        { headers: restHeaders }
+      )
+      if (photosRes.ok) {
+        const photos: {email: string, photo_url: string | null}[] = await photosRes.json()
+        photos.forEach(p => { if (p.photo_url) photoMap[p.email] = p.photo_url })
+      }
+    }
+
+    // Attach current photo to each message
+    const enrichedTeam = teamMessages.map((m: {sender_email: string}) => ({ ...m, sender_photo: photoMap[m.sender_email] || null }))
+    const enrichedPrivate = privateMessages.map((m: {sender_email: string}) => ({ ...m, sender_photo: photoMap[m.sender_email] || null }))
+
+    return NextResponse.json({ teamMessages: enrichedTeam, privateMessages: enrichedPrivate })
   } catch (error) {
     console.error('[messages/feed] error:', error)
     return NextResponse.json({ error: 'Failed to fetch feed' }, { status: 500 })
