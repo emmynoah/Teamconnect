@@ -18,6 +18,13 @@ export async function POST(req: NextRequest) {
   try {
     const { content, visibility, recipientEmail, senderEmail, senderName, senderInitials, isLeaderMessage } = await req.json()
 
+    const profileRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(senderEmail)}&select=photo_url`,
+      { headers: restHeaders }
+    )
+    const profileRows: { photo_url: string | null }[] = profileRes.ok ? await profileRes.json() : []
+    const senderPhoto = profileRows[0]?.photo_url || null
+
     // Insert via direct REST API — bypasses PostgREST schema cache issue (PGRST205)
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
       method: 'POST',
@@ -26,6 +33,7 @@ export async function POST(req: NextRequest) {
         sender_email: senderEmail,
         sender_name: senderName,
         sender_initials: senderInitials,
+        sender_photo: senderPhoto,
         content,
         visibility,
         recipient_email: recipientEmail || null,

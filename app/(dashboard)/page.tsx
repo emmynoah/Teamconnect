@@ -10,6 +10,7 @@ interface Message {
   sender_email: string
   sender_name: string
   sender_initials: string
+  sender_photo?: string
   content: string
   visibility: 'team' | 'private'
   recipient_email: string | null
@@ -377,12 +378,16 @@ export default function DashboardPage() {
                       }
                     >
                       <div className="flex items-center gap-3 mb-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
-                        >
-                          {msg.sender_initials}
-                        </div>
+                        {msg.sender_photo ? (
+                          <img src={msg.sender_photo} alt={msg.sender_name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                            style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
+                          >
+                            {msg.sender_initials}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <Link href={`/profile/${encodeURIComponent(msg.sender_email)}`} className="text-sm font-semibold text-[#111827] hover:text-[#0A7E5A] transition-colors">

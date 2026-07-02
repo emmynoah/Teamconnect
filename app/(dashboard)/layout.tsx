@@ -14,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
   const [userInitials, setUserInitials] = useState('')
+  const [photoUrl, setPhotoUrl] = useState('')
   const [showMenu, setShowMenu] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -27,6 +28,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
 
       setUserEmail(user.email || '')
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('photo_url')
+        .eq('id', user.id)
+        .single()
+      if (profile?.photo_url) setPhotoUrl(profile.photo_url)
 
       const { data: notifs } = await supabase
         .from('notifications')
@@ -115,9 +123,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-[#9CA3AF] text-sm hidden sm:block">
               {userName.split(' ')[0]} {userName.split(' ')[1]?.[0]}.
             </span>
-            <div className="w-8 h-8 rounded-full bg-[#0A7E5A] flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold">{userInitials}</span>
-            </div>
+            {photoUrl ? (
+              <img src={photoUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#0A7E5A] flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-xs font-bold">{userInitials}</span>
+              </div>
+            )}
           </button>
 
           {/* Dropdown */}

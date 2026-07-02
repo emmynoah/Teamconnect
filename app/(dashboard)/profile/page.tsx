@@ -20,6 +20,8 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [passwordError, setPasswordError] = useState('')
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -38,9 +40,41 @@ export default function ProfilePage() {
         setInitials(match.initials)
         setRole(match.role)
       }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('photo_url')
+        .eq('id', user.id)
+        .single()
+      if (profile?.photo_url) setPhotoUrl(profile.photo_url)
     }
     init()
   }, [])
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const fileExt = file.name.split('.').pop()
+      const filePath = `${user.id}.${fileExt}`
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+      await supabase.from('profiles').update({ photo_url: publicUrl }).eq('id', user.id)
+      setPhotoUrl(publicUrl)
+    } catch (error) {
+      console.error('Photo upload error:', error)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
 
   const handleSave = async () => {
     setStatus('saving')
@@ -111,10 +145,37 @@ export default function ProfilePage() {
           style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #0A7E5A' }}
         >
           <div
-            className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 text-lg font-bold"
-            style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
+            className="relative w-16 h-16 flex-shrink-0 cursor-pointer group"
+            onClick={() => document.getElementById('photo-upload')?.click()}
           >
-            {initials}
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt="Profile photo"
+                className="w-16 h-16 rounded-full object-cover"
+                style={{ border: '3px solid #0A7E5A' }}
+              />
+            ) : (
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold"
+                style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A', border: '3px solid #0A7E5A' }}
+              >
+                {initials}
+              </div>
+            )}
+            <div
+              className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+            >
+              <span className="text-white text-[10px] font-semibold text-center px-1">{photoUploading ? 'Uploading...' : 'Change photo'}</span>
+            </div>
+            <input
+              id="photo-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
           </div>
           <div>
             <p className="text-lg font-bold text-[#111827]">{fullName}</p>
