@@ -499,6 +499,9 @@ export default function DashboardPage() {
                             )}
                             <div className="flex-1">
                               <span className="text-xs font-semibold text-[#111827]">{comment.sender_name}</span>
+                              {comment.sender_email === 'christophe.m@carsaministry.org' && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded ml-1" style={{ backgroundColor: '#0A7E5A', color: 'white' }}>Leader</span>
+                              )}
                               <span className="text-xs text-[#6B7280] ml-2">{formatTime(comment.created_at)}</span>
                               <p className="text-xs text-[#374151] mt-0.5 leading-relaxed">{comment.content}</p>
                             </div>
@@ -566,7 +569,12 @@ export default function DashboardPage() {
                             {partnerInitials}
                           </div>
                         )}
-                        <p className="text-sm font-semibold text-[#111827]">{partnerName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-[#111827]">{partnerName}</p>
+                          {partnerEmail === 'christophe.m@carsaministry.org' && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: '#0A7E5A', color: 'white' }}>Leader</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Messages thread */}
