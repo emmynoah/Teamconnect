@@ -46,6 +46,8 @@ export default function DashboardPage() {
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
   const [commentLoading, setCommentLoading] = useState<Record<string, boolean>>({})
   const [commenterPhotos, setCommenterPhotos] = useState<Record<string, string>>({})
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({})
+  const [replySending, setReplySending] = useState<Record<string, boolean>>({})
   const [upcomingCount, setUpcomingCount] = useState(0)
   const [submittedCount, setSubmittedCount] = useState(0)
   const [submittedEmails, setSubmittedEmails] = useState<string[]>([])
@@ -239,6 +241,56 @@ export default function DashboardPage() {
     return new Date(dateStr).toLocaleDateString('en-GB', {
       day: 'numeric', month: 'short',
     })
+  }
+
+  const getConversationPartner = (msg: Message) => {
+    return msg.sender_email === userEmail ? msg.recipient_email : msg.sender_email
+  }
+
+  const getConversationPartnerName = (msg: Message) => {
+    return msg.sender_email === userEmail ? (msg.recipient_email || '') : msg.sender_name
+  }
+
+  const conversations = privateMessages.reduce((acc: Record<string, Message[]>, msg) => {
+    const partner = getConversationPartner(msg) || 'unknown'
+    if (!acc[partner]) acc[partner] = []
+    acc[partner].push(msg)
+    return acc
+  }, {})
+
+  // Sort messages within each conversation oldest first
+  Object.keys(conversations).forEach(key => {
+    conversations[key].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  })
+
+  const sendReply = async (partnerEmail: string) => {
+    const content = replyInputs[partnerEmail]?.trim()
+    if (!content) return
+    setReplySending(prev => ({ ...prev, [partnerEmail]: true }))
+    try {
+      await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          visibility: 'private',
+          recipientEmail: partnerEmail,
+          senderEmail: userEmail,
+          senderName: userName,
+          senderInitials: userInitials,
+          isLeaderMessage: false,
+        }),
+      })
+      setReplyInputs(prev => ({ ...prev, [partnerEmail]: '' }))
+      // Refresh feed
+      const res = await fetch(`/api/messages/feed?email=${encodeURIComponent(userEmail)}`)
+      const data = await res.json()
+      if (data.privateMessages) setPrivateMessages(data.privateMessages)
+    } catch {
+      // silent fail
+    } finally {
+      setReplySending(prev => ({ ...prev, [partnerEmail]: false }))
+    }
   }
 
   return (
@@ -483,37 +535,93 @@ export default function DashboardPage() {
           </div>
 
           {/* Private Messages */}
-          {privateMessages.length > 0 && (
+          {Object.keys(conversations).length > 0 && (
             <div>
               <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-4">
                 Private Messages
               </p>
-              <div className="flex flex-col gap-3">
-                {privateMessages.map(msg => (
-                  <div
-                    key={msg.id}
-                    className="bg-white rounded-xl p-5"
-                    style={{ border: '1px solid #E5E7EB', borderLeft: '4px solid #111827' }}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
-                      >
-                        {msg.sender_initials}
+              <div className="flex flex-col gap-4">
+                {Object.entries(conversations).map(([partnerEmail, msgs]) => {
+                  const partnerName = getConversationPartnerName(msgs[0])
+                  const partnerInitials = msgs.find(m => m.sender_email !== userEmail)?.sender_initials || partnerEmail.slice(0, 2).toUpperCase()
+                  const partnerPhoto = msgs.find(m => m.sender_email !== userEmail)?.sender_photo
+                  return (
+                    <div key={partnerEmail} className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+                      {/* Conversation header */}
+                      <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+                        {partnerPhoto ? (
+                          <img src={partnerPhoto} alt={partnerName} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}>
+                            {partnerInitials}
+                          </div>
+                        )}
+                        <p className="text-sm font-semibold text-[#111827]">{partnerName}</p>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-[#111827]">
-                          {msg.sender_email === userEmail ? `To: ${msg.recipient_email}` : `From: ${msg.sender_name}`}
-                        </p>
-                        <p className="text-xs text-[#6B7280]">
-                          {formatDate(msg.created_at)} at {formatTime(msg.created_at)}
-                        </p>
+
+                      {/* Messages thread */}
+                      <div className="px-4 py-3 flex flex-col gap-3">
+                        {msgs.map(msg => {
+                          const isMine = msg.sender_email === userEmail
+                          return (
+                            <div key={msg.id} className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
+                              {isMine ? (
+                                commenterPhotos[userEmail] ? (
+                                  <img src={commenterPhotos[userEmail]} alt={userName} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: '#F48221', color: 'black' }}>
+                                    {userInitials}
+                                  </div>
+                                )
+                              ) : (
+                                partnerPhoto ? (
+                                  <img src={partnerPhoto} alt={partnerName} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}>
+                                    {partnerInitials}
+                                  </div>
+                                )
+                              )}
+                              <div className={`max-w-[75%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
+                                <div
+                                  className="px-3 py-2 rounded-xl text-sm leading-relaxed"
+                                  style={isMine
+                                    ? { backgroundColor: '#0A7E5A', color: 'white', borderRadius: '12px 2px 12px 12px' }
+                                    : { backgroundColor: '#F3F4F6', color: '#374151', borderRadius: '2px 12px 12px 12px' }
+                                  }
+                                >
+                                  {msg.content}
+                                </div>
+                                <p className="text-[10px] text-[#9CA3AF] mt-1">{formatTime(msg.created_at)}</p>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Reply input */}
+                      <div className="px-4 py-3 flex gap-2" style={{ borderTop: '1px solid #E5E7EB' }}>
+                        <input
+                          type="text"
+                          value={replyInputs[partnerEmail] || ''}
+                          onChange={e => setReplyInputs(prev => ({ ...prev, [partnerEmail]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') sendReply(partnerEmail) }}
+                          placeholder={`Reply to ${partnerName}...`}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs text-[#374151] outline-none"
+                          style={{ border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}
+                        />
+                        <button
+                          onClick={() => sendReply(partnerEmail)}
+                          disabled={replySending[partnerEmail]}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                          style={{ backgroundColor: replySending[partnerEmail] ? '#E5E7EB' : '#0A7E5A' }}
+                        >
+                          Send
+                        </button>
                       </div>
                     </div>
-                    <p className="text-sm text-[#374151] leading-relaxed">{msg.content}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
