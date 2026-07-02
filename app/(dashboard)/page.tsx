@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
   const [commentLoading, setCommentLoading] = useState<Record<string, boolean>>({})
+  const [commenterPhotos, setCommenterPhotos] = useState<Record<string, string>>({})
   const [upcomingCount, setUpcomingCount] = useState(0)
   const [submittedCount, setSubmittedCount] = useState(0)
   const [submittedEmails, setSubmittedEmails] = useState<string[]>([])
@@ -75,6 +76,21 @@ export default function DashboardPage() {
         grouped[c.message_id].push(c)
       })
       setComments(prev => ({ ...prev, ...grouped }))
+
+      const commenterEmails = Array.from(new Set(data.map((c: Comment) => c.sender_email)))
+      if (commenterEmails.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('email, photo_url')
+          .in('email', commenterEmails)
+        if (profiles) {
+          const photoMap: Record<string, string> = {}
+          profiles.forEach((p: { email: string, photo_url: string | null }) => {
+            if (p.photo_url) photoMap[p.email] = p.photo_url
+          })
+          setCommenterPhotos(prev => ({ ...prev, ...photoMap }))
+        }
+      }
     }
   }
 
@@ -410,12 +426,16 @@ export default function DashboardPage() {
                       <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E5E7EB' }}>
                         {(comments[msg.id] || []).map(comment => (
                           <div key={comment.id} className="flex gap-2 mb-2">
-                            <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                              style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
-                            >
-                              {comment.sender_initials}
-                            </div>
+                            {commenterPhotos[comment.sender_email] ? (
+                              <img src={commenterPhotos[comment.sender_email]} alt={comment.sender_name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                                style={{ backgroundColor: '#E8F5F0', color: '#0A7E5A' }}
+                              >
+                                {comment.sender_initials}
+                              </div>
+                            )}
                             <div className="flex-1">
                               <span className="text-xs font-semibold text-[#111827]">{comment.sender_name}</span>
                               <span className="text-xs text-[#6B7280] ml-2">{formatTime(comment.created_at)}</span>
@@ -424,12 +444,16 @@ export default function DashboardPage() {
                           </div>
                         ))}
                         <div className="flex gap-2 mt-2">
-                          <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                            style={{ backgroundColor: '#F48221', color: 'black' }}
-                          >
-                            {userInitials}
-                          </div>
+                          {commenterPhotos[userEmail] ? (
+                            <img src={commenterPhotos[userEmail]} alt={userName} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                          ) : (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                              style={{ backgroundColor: '#F48221', color: 'black' }}
+                            >
+                              {userInitials}
+                            </div>
+                          )}
                           <div className="flex-1 flex gap-2">
                             <input
                               type="text"
