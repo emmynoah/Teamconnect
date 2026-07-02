@@ -73,7 +73,7 @@ export default function DashboardPage() {
         if (!grouped[c.message_id]) grouped[c.message_id] = []
         grouped[c.message_id].push(c)
       })
-      setComments(grouped)
+      setComments(prev => ({ ...prev, ...grouped }))
     }
   }
 
