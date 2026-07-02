@@ -248,6 +248,9 @@ export default function DashboardPage() {
   }
 
   const getConversationPartnerName = (msg: Message) => {
+    const partnerEmail = msg.sender_email === userEmail ? msg.recipient_email : msg.sender_email
+    const match = CARSA_TEAM.find(m => m.email === partnerEmail)
+    if (match) return match.full_name
     return msg.sender_email === userEmail ? (msg.recipient_email || '') : msg.sender_name
   }
 
